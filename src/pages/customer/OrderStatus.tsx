@@ -61,18 +61,21 @@ export default function OrderStatus() {
   const currentStep = STEPS.findIndex((s) => s.status === order.status);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <header className="customer-header">
-        <div>
-          <h1>Order Status</h1>
-          <span>Table {order.tableNumber} &bull; #{order.id.slice(0, 8)}</span>
-        </div>
+    <div style={{ minHeight: '100vh', background: '#f5f3ef' }}>
+      <header className="menu-hero">
         <button
-          style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+          className="cart-header-btn"
           onClick={() => navigate(`/table/${order.tableId}`)}
+          title="New Order"
+          style={{ fontSize: '0.75rem', width: 'auto', padding: '0 12px', borderRadius: 20, fontWeight: 700, letterSpacing: '0.02em' }}
         >
           + New Order
         </button>
+        <div className="menu-hero-inner">
+          <h1 className="menu-shop-title" style={{ fontSize: '1.6rem' }}>Order Status</h1>
+          <div className="menu-table-badge">Table {order.tableNumber}</div>
+          <p className="menu-shop-sub">#{order.id.slice(0, 8)}</p>
+        </div>
       </header>
 
       <div className="order-status-page">

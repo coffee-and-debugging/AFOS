@@ -100,7 +100,15 @@ export default function AdminDashboard() {
     revenue: paidOrders.filter((o) => o.paymentMethod === m).reduce((s, o) => s + o.totalAmount, 0),
   })).filter((d) => d.revenue > 0);
 
-  const filteredOrders = statusFilter ? orders.filter((o) => o.status === statusFilter) : orders;
+  const STATUS_ORDER: Record<string, number> = { pending: 0, cooking: 1, serving: 2, completed: 3 };
+  const filteredOrders = (statusFilter ? orders.filter((o) => o.status === statusFilter) : orders)
+    .slice()
+    .sort((a, b) => {
+      const payA = a.paymentStatus === 'paid' ? 1 : 0;
+      const payB = b.paymentStatus === 'paid' ? 1 : 0;
+      if (payA !== payB) return payA - payB;
+      return STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+    });
 
   return (
     <AdminLayout>
@@ -191,16 +199,20 @@ export default function AdminDashboard() {
       <div className="card">
         <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {['', 'pending', 'cooking', 'serving', 'completed'].map((s) => (
-              <button key={s} className={`btn btn-sm ${statusFilter === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setStatusFilter(s)}>
-                {s === '' ? 'All' : STATUS_LABELS[s as OrderStatus]}
-                {s === 'pending' && stats.pending > 0 && (
-                  <span style={{ background: '#fd7e14', color: '#fff', borderRadius: 10, padding: '0 5px', fontSize: '0.7rem', marginLeft: 4 }}>
-                    {stats.pending}
-                  </span>
-                )}
-              </button>
-            ))}
+            {(['', 'pending', 'cooking', 'serving', 'completed'] as const).map((s) => {
+              const count = s === '' ? orders.length : orders.filter((o) => o.status === s).length;
+              const badgeColor: Record<string, string> = { pending: '#fd7e14', cooking: '#0dcaf0', serving: '#2d6a4f', completed: '#6c757d' };
+              return (
+                <button key={s} className={`btn btn-sm ${statusFilter === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setStatusFilter(s)}>
+                  {s === '' ? 'All' : STATUS_LABELS[s as OrderStatus]}
+                  {count > 0 && (
+                    <span style={{ background: s === '' ? '#6c757d' : badgeColor[s], color: '#fff', borderRadius: 10, padding: '0 5px', fontSize: '0.7rem', marginLeft: 4 }}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''}</span>
         </div>
