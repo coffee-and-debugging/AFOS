@@ -22,6 +22,7 @@ model MenuItem {
   price       Float
   category    String
   available   Boolean @default(true)
+  imageUrl    String?
 }
 
 model Table {

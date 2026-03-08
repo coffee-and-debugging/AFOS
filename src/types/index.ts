@@ -5,6 +5,7 @@ export interface MenuItem {
   price: number;
   category: 'tea' | 'food';
   available: boolean;
+  imageUrl?: string | null;
 }
 
 export interface Table {

@@ -23,6 +23,7 @@ function formatDate(iso: string) {
 }
 
 const PIE_COLORS = ['#2d6a4f', '#c0392b', '#fd7e14'];
+const METHOD_COLOR: Record<string, string> = { esewa: '#3BB143', khalti: '#5C2D91', counter: '#fd7e14' };
 
 export default function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -97,6 +98,7 @@ export default function AdminDashboard() {
 
   const revenueByMethod = ['esewa', 'khalti', 'counter'].map((m) => ({
     name: PAYMENT_METHOD_LABEL[m],
+    method: m,
     revenue: paidOrders.filter((o) => o.paymentMethod === m).reduce((s, o) => s + o.totalAmount, 0),
   })).filter((d) => d.revenue > 0);
 
@@ -187,7 +189,9 @@ export default function AdminDashboard() {
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip formatter={(v) => `Rs. ${Number(v).toLocaleString()}`} />
-                  <Bar dataKey="revenue" name="Revenue" fill="#2d6a4f" radius={[5, 5, 0, 0]} />
+                  <Bar dataKey="revenue" name="Revenue" radius={[5, 5, 0, 0]}>
+                    {revenueByMethod.map((e, i) => <Cell key={i} fill={METHOD_COLOR[e.method] ?? '#2d6a4f'} />)}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -238,7 +242,10 @@ export default function AdminDashboard() {
                     <td>Rs. {order.totalAmount.toLocaleString()}</td>
                     <td><span className={`badge badge-${order.status}`}>{STATUS_LABELS[order.status]}</span></td>
                     <td>
-                      <span className={`badge badge-${order.paymentStatus === 'paid' ? 'paid' : 'unpaid'}`}>
+                      <span
+                        className={`badge badge-${order.paymentStatus === 'paid' ? 'paid' : 'unpaid'}`}
+                        style={order.paymentStatus === 'paid' && order.paymentMethod ? { background: METHOD_COLOR[order.paymentMethod] ?? undefined, color: '#fff', border: 'none' } : undefined}
+                      >
                         {order.paymentStatus === 'paid'
                           ? `Paid (${order.paymentMethod ? PAYMENT_METHOD_LABEL[order.paymentMethod] || order.paymentMethod : '?'})`
                           : 'Unpaid'}
@@ -301,7 +308,10 @@ export default function AdminDashboard() {
             )}
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
               <strong>Total: Rs. {selectedOrder.totalAmount.toLocaleString()}</strong>
-              <span className={`badge badge-${selectedOrder.paymentStatus === 'paid' ? 'paid' : 'unpaid'}`}>
+              <span
+                className={`badge badge-${selectedOrder.paymentStatus === 'paid' ? 'paid' : 'unpaid'}`}
+                style={selectedOrder.paymentStatus === 'paid' && selectedOrder.paymentMethod ? { background: METHOD_COLOR[selectedOrder.paymentMethod] ?? undefined, color: '#fff', border: 'none' } : undefined}
+              >
                 {selectedOrder.paymentStatus === 'paid'
                   ? `Paid via ${selectedOrder.paymentMethod ? PAYMENT_METHOD_LABEL[selectedOrder.paymentMethod] || selectedOrder.paymentMethod : '?'}`
                   : 'Unpaid'}

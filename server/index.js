@@ -34,6 +34,9 @@ app.use('/api', apiLimiter);
 
 app.use(express.json({ limit: '1mb' }));
 
+// Serve uploaded images
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 app.use('/api/auth', authRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/tables', tablesRoutes);

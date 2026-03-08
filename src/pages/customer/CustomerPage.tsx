@@ -105,25 +105,14 @@ export default function CustomerPage() {
   const teas = menuItems.filter((m) => m.category === 'tea');
   const foods = menuItems.filter((m) => m.category === 'food');
 
-  // Picsum seeds → consistent real photos (replace with actual food photos in production)
-  const ITEM_IMG: Record<string, string> = {
-    'Green Tea':     'https://picsum.photos/seed/greentea/400/260',
-    'Oolong Tea':    'https://picsum.photos/seed/oolong/400/260',
-    'Matcha Latte':  'https://picsum.photos/seed/matcha/400/260',
-    'Earl Grey':     'https://picsum.photos/seed/earlgrey/400/260',
-    'Chamomile':     'https://picsum.photos/seed/chamomile/400/260',
-    'Egg Tart':      'https://picsum.photos/seed/eggtart/400/260',
-    'Scone':         'https://picsum.photos/seed/scone/400/260',
-    'Tea Sandwich':  'https://picsum.photos/seed/sandwich/400/260',
-    'Almond Cake':   'https://picsum.photos/seed/almondcake/400/260',
-  };
   const FALLBACK_IMG = {
     tea:  'https://picsum.photos/seed/teatime/400/260',
     food: 'https://picsum.photos/seed/foodplate/400/260',
   };
 
   function imgSrc(item: MenuItem) {
-    return ITEM_IMG[item.name] ?? FALLBACK_IMG[item.category];
+    if (item.imageUrl) return item.imageUrl;
+    return FALLBACK_IMG[item.category];
   }
 
   function renderCard(item: MenuItem) {

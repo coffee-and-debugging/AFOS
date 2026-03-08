@@ -1,7 +1,8 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import AdminLayout from './AdminLayout';
 import { api } from '../../api/client';
 import type { MenuItem } from '../../types';
+import ImageEditor from '../../components/ImageEditor';
 
 const EMPTY_FORM: { name: string; description: string; price: string; category: 'tea' | 'food'; available: boolean } = {
   name: '', description: '', price: '', category: 'tea', available: true,
@@ -15,6 +16,11 @@ export default function MenuManagement() {
   const [editItem, setEditItem] = useState<MenuItem | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [showEditor, setShowEditor] = useState(false);
+  const [editorSrc, setEditorSrc] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.menu.getAll().then(setItems).catch((e) => setError(e.message)).finally(() => setLoading(false));
@@ -23,20 +29,63 @@ export default function MenuManagement() {
   function openCreate() {
     setEditItem(null);
     setForm(EMPTY_FORM);
+    setImageFile(null);
+    setImagePreview(null);
     setShowModal(true);
   }
 
   function openEdit(item: MenuItem) {
     setEditItem(item);
     setForm({ name: item.name, description: item.description, price: String(item.price), category: item.category, available: item.available });
+    setImageFile(null);
+    setImagePreview(item.imageUrl ?? null);
     setShowModal(true);
+  }
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setEditorSrc(url);
+    setShowEditor(true);
+  }
+
+  function openEditorForExisting() {
+    if (imagePreview) {
+      setEditorSrc(imagePreview);
+      setShowEditor(true);
+    }
+  }
+
+  function handleEditorSave(blob: Blob) {
+    const file = new File([blob], `edited-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(blob));
+    setShowEditor(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  function removeImage() {
+    setImageFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { ...form, price: parseFloat(form.price) };
+      let imageUrl: string | null | undefined = editItem?.imageUrl ?? null;
+
+      if (imageFile) {
+        const result = await api.menu.uploadImage(imageFile, form.name);
+        imageUrl = result.imageUrl;
+      } else if (!imagePreview) {
+        imageUrl = null;
+      }
+
+      const payload = { ...form, price: parseFloat(form.price), imageUrl };
+
       if (editItem) {
         const updated = await api.menu.update(editItem.id, payload);
         setItems((prev) => prev.map((m) => (m.id === editItem.id ? updated : m)));
@@ -52,7 +101,7 @@ export default function MenuManagement() {
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: number) {
     if (!confirm('Delete this menu item?')) return;
     try {
       await api.menu.delete(id);
@@ -92,6 +141,7 @@ export default function MenuManagement() {
                   <table>
                     <thead>
                       <tr>
+                        <th>Image</th>
                         <th>Name</th>
                         <th>Description</th>
                         <th>Price</th>
@@ -102,9 +152,15 @@ export default function MenuManagement() {
                     <tbody>
                       {list.map((item) => (
                         <tr key={item.id}>
+                          <td>
+                            {item.imageUrl
+                              ? <img src={item.imageUrl} alt={item.name} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }} />
+                              : <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>No image</span>
+                            }
+                          </td>
                           <td><strong>{item.name}</strong></td>
                           <td className="text-muted">{item.description}</td>
-                          <td>${item.price.toFixed(2)}</td>
+                          <td>Rs. {item.price.toFixed(0)}</td>
                           <td>
                             <button
                               className={`btn btn-sm ${item.available ? 'btn-primary' : 'btn-secondary'}`}
@@ -147,8 +203,8 @@ export default function MenuManagement() {
                 <input className="form-control" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
               </div>
               <div className="form-group">
-                <label>Price ($)</label>
-                <input type="number" step="0.01" min="0" className="form-control" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
+                <label>Price (Rs.)</label>
+                <input type="number" step="1" min="0" className="form-control" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
               </div>
               <div className="form-group">
                 <label>Category</label>
@@ -157,6 +213,36 @@ export default function MenuManagement() {
                   <option value="food">Food</option>
                 </select>
               </div>
+
+              {/* Image section */}
+              <div className="form-group">
+                <label>Item Image</label>
+                {imagePreview && (
+                  <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <img src={imagePreview} alt="preview" style={{ width: 100, height: 70, objectFit: 'cover', borderRadius: 8 }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={openEditorForExisting}>
+                        ✏️ Edit Image
+                      </button>
+                      <button type="button" className="btn btn-danger btn-sm" onClick={removeImage}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="form-control"
+                  onChange={handleImageChange}
+                  style={{ padding: '6px' }}
+                />
+                <small style={{ color: 'var(--text-muted)' }}>
+                  Max 5MB · JPG, PNG, WebP · Selecting a file opens the editor
+                </small>
+              </div>
+
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
@@ -164,6 +250,15 @@ export default function MenuManagement() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Image Editor — opens on top of the item modal */}
+      {showEditor && editorSrc && (
+        <ImageEditor
+          src={editorSrc}
+          onSave={handleEditorSave}
+          onCancel={() => setShowEditor(false)}
+        />
       )}
     </AdminLayout>
   );

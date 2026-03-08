@@ -43,6 +43,21 @@ export const api = {
     update: (id: number, item: Partial<MenuItem>) =>
       request<MenuItem>(`/menu/${id}`, { method: 'PUT', body: JSON.stringify(item) }),
     delete: (id: number) => request<{ success: boolean }>(`/menu/${id}`, { method: 'DELETE' }),
+    uploadImage: async (file: File, itemName?: string): Promise<{ imageUrl: string }> => {
+      const formData = new FormData();
+      if (itemName) formData.append('itemName', itemName);
+      formData.append('image', file);
+      const res = await fetch(`${API_BASE}/menu/upload`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(err.error || 'Upload failed');
+      }
+      return res.json();
+    },
   },
 
   tables: {
