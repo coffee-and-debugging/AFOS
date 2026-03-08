@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import type { MenuItem, Order } from '../../types/index';
 
-type Cart = Record<string, number>;
+type Cart = Record<number, number>;
 
 const STORAGE_KEY = (tableId: string) => `afos_orders_${tableId}`;
 
@@ -54,6 +54,11 @@ export default function CustomerPage() {
       .then(setMenuItems)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
+
+    const id = setInterval(() => {
+      api.menu.getAll().then(setMenuItems).catch(() => {});
+    }, 8000);
+    return () => clearInterval(id);
   }, []);
 
   const refreshTracked = useCallback(async () => {
@@ -74,7 +79,7 @@ export default function CustomerPage() {
     return () => clearInterval(id);
   }, [refreshTracked]);
 
-  function setQty(id: string, qty: number) {
+  function setQty(id: number, qty: number) {
     setCart((prev) => {
       if (qty <= 0) { const next = { ...prev }; delete next[id]; return next; }
       return { ...prev, [id]: qty };
