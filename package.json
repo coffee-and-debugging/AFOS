@@ -9,6 +9,9 @@
     "server:dev": "cd server && npm run dev",
     "build": "tsc -b && vite build",
     "start": "cd server && NODE_ENV=production node index.js",
+    "db:setup": "cd server && npm run db:setup",
+    "db:migrate": "cd server && npm run db:migrate",
+    "db:seed": "cd server && npm run db:seed",
     "lint": "eslint .",
     "preview": "vite preview"
   },

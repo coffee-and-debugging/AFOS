@@ -40,9 +40,9 @@ export const api = {
     getAll: () => request<MenuItem[]>('/menu'),
     create: (item: Partial<MenuItem>) =>
       request<MenuItem>('/menu', { method: 'POST', body: JSON.stringify(item) }),
-    update: (id: string, item: Partial<MenuItem>) =>
+    update: (id: number, item: Partial<MenuItem>) =>
       request<MenuItem>(`/menu/${id}`, { method: 'PUT', body: JSON.stringify(item) }),
-    delete: (id: string) => request<{ success: boolean }>(`/menu/${id}`, { method: 'DELETE' }),
+    delete: (id: number) => request<{ success: boolean }>(`/menu/${id}`, { method: 'DELETE' }),
   },
 
   tables: {
