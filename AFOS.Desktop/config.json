@@ -1,0 +1,4 @@
+{
+  "ConnectionString": "Host=localhost;Port=5432;Database=afos;Username=postgres;Password=bhakari",
+  "UploadsPath": ""
+}
