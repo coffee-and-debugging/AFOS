@@ -1,0 +1,35 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AFOS.Desktop.Views.Dialogs.QrCodeDialog"
+        Title="QR Code"
+        Height="440" Width="380"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BgBrush}">
+
+    <Border Margin="24" Background="White" CornerRadius="10" Padding="28"
+            BoxShadow="0 1 10 0 #12000000">
+        <StackPanel HorizontalAlignment="Center" Spacing="0">
+
+            <TextBlock x:Name="TxtTitle" FontSize="18" FontWeight="Bold"
+                       HorizontalAlignment="Center" Margin="0,0,0,4"/>
+            <TextBlock x:Name="TxtUrl" FontSize="11"
+                       Foreground="{StaticResource TextMutedBrush}"
+                       HorizontalAlignment="Center" Margin="0,0,0,16"
+                       TextWrapping="Wrap" TextAlignment="Center"/>
+
+            <Border BorderBrush="{StaticResource BorderColorBrush}" BorderThickness="1"
+                    CornerRadius="8" Padding="12" Margin="0,0,0,16"
+                    HorizontalAlignment="Center">
+                <Image x:Name="QrImage" Width="260" Height="260"
+                       RenderOptions.BitmapInterpolationMode="None"/>
+            </Border>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="10">
+                <Button Content="Download PNG" Classes="primary" Click="BtnDownload_Click"/>
+                <Button Content="Close"        Classes="secondary" Click="BtnClose_Click"/>
+            </StackPanel>
+
+        </StackPanel>
+    </Border>
+</Window>

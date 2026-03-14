@@ -1,0 +1,324 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:AFOS.Desktop.Converters"
+             x:Class="AFOS.Desktop.Views.Pages.DashboardPage">
+
+    <UserControl.Resources>
+        <conv:BoolToIsVisibleConverter   x:Key="BoolVis"/>
+        <conv:StatusToBrushConverter     x:Key="StatusBg"/>
+        <conv:StatusToFgConverter        x:Key="StatusFg"/>
+        <conv:PayStatusToBrushConverter  x:Key="PayBg"/>
+        <conv:PayStatusToFgConverter     x:Key="PayFg"/>
+    </UserControl.Resources>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="28,20,28,28" Spacing="20">
+
+            <!-- ══ HEADER ══════════════════════════════════════════ -->
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Orders Dashboard" FontSize="22" FontWeight="Bold"
+                               Foreground="{StaticResource TextBrush}"/>
+                    <TextBlock Text="{Binding LastUpdated}" FontSize="11"
+                               Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,0"/>
+                </StackPanel>
+                <Button Grid.Column="1" Classes="secondary" Click="BtnRefresh_Click"
+                        VerticalAlignment="Center" Padding="12,5">
+                    <TextBlock Text="Refresh" VerticalAlignment="Center"/>
+                </Button>
+            </Grid>
+
+            <!-- ══ STAT CARDS ══════════════════════════════════════ -->
+            <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto">
+
+                <!-- Row 0 Col 0: Total Orders -->
+                <Border Classes="card" Grid.Row="0" Grid.Column="0" Margin="0,0,10,10"
+                        Padding="17,16">
+                    <StackPanel>
+                        <TextBlock Text="{Binding TotalOrders}" FontSize="30" FontWeight="Bold"
+                                   Foreground="{StaticResource PrimaryBrush}"/>
+                        <TextBlock Text="TOTAL ORDERS" FontSize="11.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   LetterSpacing="1" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Row 0 Col 1: Pending -->
+                <Border Classes="card" Grid.Row="0" Grid.Column="1" Margin="5,0,5,10"
+                        Padding="17,16">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Pending}" FontSize="30" FontWeight="Bold"
+                                   Foreground="#856404"/>
+                        <TextBlock Text="PENDING" FontSize="11.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   LetterSpacing="1" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Row 0 Col 2: Cooking -->
+                <Border Classes="card" Grid.Row="0" Grid.Column="2" Margin="10,0,0,10"
+                        Padding="17,16">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Cooking}" FontSize="30" FontWeight="Bold"
+                                   Foreground="#055160"/>
+                        <TextBlock Text="COOKING" FontSize="11.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   LetterSpacing="1" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Row 1 Col 0: Serving -->
+                <Border Classes="card" Grid.Row="1" Grid.Column="0" Margin="0,0,10,0"
+                        Padding="17,16">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Serving}" FontSize="30" FontWeight="Bold"
+                                   Foreground="#0a3622"/>
+                        <TextBlock Text="SERVING" FontSize="11.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   LetterSpacing="1" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Row 1 Col 1: Revenue -->
+                <Border Classes="card" Grid.Row="1" Grid.Column="1" Margin="5,0,5,0"
+                        Padding="17,16">
+                    <StackPanel>
+                        <TextBlock Text="{Binding RevenueDisplay}" FontSize="22" FontWeight="Bold"
+                                   Foreground="{StaticResource PrimaryBrush}"/>
+                        <TextBlock Text="REVENUE COLLECTED" FontSize="11.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   LetterSpacing="1" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Row 1 Col 2: Cash Pending (only if HasCashPending) -->
+                <Border Classes="card" Grid.Row="1" Grid.Column="2" Margin="10,0,0,0"
+                        Padding="17,16"
+                        BorderBrush="#fd7e14" BorderThickness="4,0,0,0"
+                        IsVisible="{Binding HasCashPending, Converter={StaticResource BoolVis}}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding CashPendingDisplay}" FontSize="22" FontWeight="Bold"
+                                   Foreground="#856404"/>
+                        <TextBlock Text="CASH PENDING" FontSize="11.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   LetterSpacing="1" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ══ CHARTS ══════════════════════════════════════════ -->
+            <Grid ColumnDefinitions="*,200,*">
+
+                <!-- Orders by Status bar chart -->
+                <Border Classes="card" Grid.Column="0" Margin="0,0,10,0">
+                    <StackPanel>
+                        <TextBlock Text="ORDERS BY STATUS" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   LetterSpacing="1.2" Margin="0,0,0,14"/>
+                        <ItemsControl ItemsSource="{Binding StatusChartData}" Height="180">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Bottom"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Width="55" Margin="6,0"
+                                                VerticalAlignment="Bottom"
+                                                HorizontalAlignment="Center">
+                                        <TextBlock Text="{Binding DisplayValue}"
+                                                   FontSize="11" FontWeight="SemiBold"
+                                                   HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                        <Rectangle Height="{Binding BarHeight}"
+                                                   Fill="{Binding BarBrush}"
+                                                   RadiusX="4" RadiusY="4"/>
+                                        <TextBlock Text="{Binding Label}"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                   HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Payment: Paid vs Unpaid stacked boxes -->
+                <Border Classes="card" Grid.Column="1" Margin="5,0,5,0">
+                    <StackPanel>
+                        <TextBlock Text="PAYMENT BREAKDOWN" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   LetterSpacing="1.2" Margin="0,0,0,8"/>
+                        <StackPanel Spacing="8" HorizontalAlignment="Center"
+                                    VerticalAlignment="Center" Margin="0,16,0,0">
+                            <!-- Paid -->
+                            <Border Background="#d1e7dd" CornerRadius="8" Padding="16,14"
+                                    HorizontalAlignment="Stretch">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding PaidCount}" FontSize="22"
+                                               FontWeight="Bold" Foreground="#0a3622"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Paid" FontSize="11"
+                                               Foreground="#0a3622"
+                                               HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                            <!-- Unpaid -->
+                            <Border Background="#f8d7da" CornerRadius="8" Padding="16,14"
+                                    HorizontalAlignment="Stretch">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding UnpaidCount}" FontSize="22"
+                                               FontWeight="Bold" Foreground="#842029"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Unpaid" FontSize="11"
+                                               Foreground="#842029"
+                                               HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Revenue by Method bar chart -->
+                <Border Classes="card" Grid.Column="2" Margin="10,0,0,0">
+                    <StackPanel>
+                        <TextBlock Text="REVENUE BY METHOD (RS.)" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   LetterSpacing="1.2" Margin="0,0,0,14"/>
+                        <ItemsControl ItemsSource="{Binding RevenueChartData}" Height="180">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Bottom"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Width="55" Margin="6,0"
+                                                VerticalAlignment="Bottom"
+                                                HorizontalAlignment="Center">
+                                        <TextBlock Text="{Binding DisplayRs}"
+                                                   FontSize="9" FontWeight="SemiBold"
+                                                   HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                        <Rectangle Height="{Binding BarHeight}"
+                                                   Fill="{Binding BarBrush}"
+                                                   RadiusX="4" RadiusY="4"/>
+                                        <TextBlock Text="{Binding Label}"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                   HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ══ ORDERS TABLE ════════════════════════════════════ -->
+            <Border Classes="card">
+                <StackPanel>
+                    <!-- Filter buttons row -->
+                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,14">
+                        <TextBlock Text="Orders" FontSize="16" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextBrush}"
+                                   VerticalAlignment="Center" Margin="0,0,14,0"/>
+                        <Button x:Name="BtnFilterAll" Classes="primary" Content="All"
+                                Click="FilterBtn_Click" Tag="all"/>
+                        <Button x:Name="BtnFilterPending" Classes="small" Content="Pending"
+                                Click="FilterBtn_Click" Tag="pending"/>
+                        <Button x:Name="BtnFilterCooking" Classes="small" Content="Cooking"
+                                Click="FilterBtn_Click" Tag="cooking"/>
+                        <Button x:Name="BtnFilterServing" Classes="small" Content="Serving"
+                                Click="FilterBtn_Click" Tag="serving"/>
+                        <Button x:Name="BtnFilterCompleted" Classes="small" Content="Completed"
+                                Click="FilterBtn_Click" Tag="completed"/>
+                    </StackPanel>
+
+                    <DataGrid ItemsSource="{Binding FilteredOrders}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserResizeColumns="True"
+                              CanUserSortColumns="False"
+                              GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column"
+                              BorderThickness="1"
+                              BorderBrush="{StaticResource BorderColorBrush}"
+                              MaxHeight="420">
+                        <DataGrid.Columns>
+                            <!-- Table # -->
+                            <DataGridTextColumn Header="Table #"
+                                                Binding="{Binding TableNumber}"
+                                                Width="70"/>
+                            <!-- Items -->
+                            <DataGridTextColumn Header="Items"
+                                                Binding="{Binding ItemsDisplay}"
+                                                Width="90"/>
+                            <!-- Total -->
+                            <DataGridTextColumn Header="Total"
+                                                Binding="{Binding TotalDisplay}"
+                                                Width="100"/>
+                            <!-- Status badge -->
+                            <DataGridTemplateColumn Header="Status" Width="110">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{Binding Status, Converter={StaticResource StatusBg}}"
+                                                CornerRadius="20" Padding="10,3"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Center" Margin="4,0">
+                                            <TextBlock Text="{Binding StatusDisplay}"
+                                                       FontSize="10.5" FontWeight="Bold"
+                                                       LetterSpacing="0.5"
+                                                       Foreground="{Binding Status, Converter={StaticResource StatusFg}}"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <!-- Payment badge -->
+                            <DataGridTemplateColumn Header="Payment" Width="130">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{Binding PaymentStatus, Converter={StaticResource PayBg}}"
+                                                CornerRadius="20" Padding="10,3"
+                                                HorizontalAlignment="Left"
+                                                VerticalAlignment="Center" Margin="4,0">
+                                            <TextBlock Text="{Binding PaymentStatusDisplay}"
+                                                       FontSize="10.5" FontWeight="Bold"
+                                                       LetterSpacing="0.5"
+                                                       Foreground="{Binding PaymentStatus, Converter={StaticResource PayFg}}"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <!-- Date/Time -->
+                            <DataGridTextColumn Header="Date/Time"
+                                                Binding="{Binding TimeDisplay}"
+                                                Width="140"/>
+                            <!-- Actions -->
+                            <DataGridTemplateColumn Header="Actions" Width="180">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="6"
+                                                    VerticalAlignment="Center" Margin="4,0">
+                                            <Button Classes="small" Content="View"
+                                                    Click="BtnView_Click"
+                                                    Tag="{Binding}"/>
+                                            <Button Classes="warning" Content="Confirm Cash"
+                                                    Click="BtnConfirmCash_Click"
+                                                    Tag="{Binding}"
+                                                    IsVisible="{Binding CanConfirmCash}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

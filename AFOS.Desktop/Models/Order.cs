@@ -1,3 +1,5 @@
+using Avalonia.Media;
+
 namespace AFOS.Desktop.Models;
 
 public class Order
@@ -49,13 +51,47 @@ public class Order
     }
 
     public bool CanAdvance => Status != "completed";
+    public bool IsCompleted => Status == "completed";
 
     public string NextActionLabel => Status switch
     {
-        "pending"   => "Mark Cooking",
-        "cooking"   => "Mark Serving",
-        "serving"   => "Mark Completed",
-        "completed" => "✓  Completed",
+        "pending"   => "Mark as Cooking",
+        "cooking"   => "Mark as Serving",
+        "serving"   => "Mark as Completed",
+        "completed" => "Completed",
         _           => ""
     };
+
+    // Progress dots for chef cards (3 dots + 2 lines)
+    private static readonly ISolidColorBrush ActiveBrush = new SolidColorBrush(Color.Parse("#2d6a4f"));
+    private static readonly ISolidColorBrush InactiveBrush = new SolidColorBrush(Color.Parse("#dee2e6"));
+
+    private int StepIndex => Status switch
+    {
+        "pending" => 0,
+        "cooking" => 1,
+        "serving" => 2,
+        "completed" => 3,
+        _ => 0
+    };
+
+    public ISolidColorBrush ProgressDot2Brush => StepIndex >= 1 ? ActiveBrush : InactiveBrush;
+    public ISolidColorBrush ProgressDot3Brush => StepIndex >= 2 ? ActiveBrush : InactiveBrush;
+    public ISolidColorBrush ProgressLine1Brush => StepIndex >= 1 ? ActiveBrush : InactiveBrush;
+    public ISolidColorBrush ProgressLine2Brush => StepIndex >= 2 ? ActiveBrush : InactiveBrush;
+
+    public string CompletedText
+    {
+        get
+        {
+            var text = "✓ Order completed";
+            if (PaymentStatus == "paid" && PaymentMethod != null)
+                text += $" · Paid ({PaymentMethod.ToUpper()})";
+            else if (PaymentStatus == "pending_counter")
+                text += " · Pay at counter";
+            else if (PaymentStatus == "unpaid")
+                text += " · Unpaid";
+            return text;
+        }
+    }
 }

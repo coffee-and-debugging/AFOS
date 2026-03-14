@@ -1,0 +1,65 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="AFOS.Desktop.Views.AdminWindow"
+        Title="AFOS Admin"
+        Height="780" Width="1280"
+        MinHeight="600" MinWidth="960"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgBrush}">
+
+    <Grid ColumnDefinitions="220,*">
+
+        <!-- Sidebar -->
+        <DockPanel Grid.Column="0" Background="{StaticResource SidebarBrush}">
+
+            <Border DockPanel.Dock="Top" Padding="20,19,20,16"
+                    BorderBrush="#26FFFFFF" BorderThickness="0,0,0,1">
+                <StackPanel HorizontalAlignment="Left" Spacing="2">
+                    <TextBlock Text="🍵 AFOS" FontSize="18" FontWeight="Bold"
+                               Foreground="White"/>
+                    <TextBlock Text="Admin Portal" FontSize="11"
+                               Foreground="#BFFFFFFF" Opacity="0.75"/>
+                </StackPanel>
+            </Border>
+
+            <Border DockPanel.Dock="Bottom" Padding="20,12,20,16"
+                    BorderBrush="#26FFFFFF" BorderThickness="0,1,0,0">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="TxtUserName" FontSize="12.5" FontWeight="SemiBold"
+                               Foreground="#D9FFFFFF"/>
+                    <TextBlock Text="Administrator" FontSize="11"
+                               Foreground="#BFFFFFFF" Opacity="0.75"/>
+                    <Button Content="Logout" Classes="nav"
+                            Foreground="#CCFFFFFF" Margin="0,6,0,0"
+                            Click="BtnLogout_Click"/>
+                </StackPanel>
+            </Border>
+
+            <StackPanel DockPanel.Dock="Top" Margin="0,16,0,0">
+                <Button x:Name="BtnNavDashboard" Classes="nav-active" Click="NavDashboard_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="📊" FontSize="14"/>
+                        <TextBlock Text="Dashboard"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="BtnNavMenu" Classes="nav" Click="NavMenu_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="🍽" FontSize="14"/>
+                        <TextBlock Text="Menu Management"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="BtnNavTables" Classes="nav" Click="NavTables_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="🪑" FontSize="14"/>
+                        <TextBlock Text="Tables &amp; QR Codes"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+
+        </DockPanel>
+
+        <!-- Main Content -->
+        <ContentControl x:Name="MainContent" Grid.Column="1"
+                        Background="{StaticResource BgBrush}"/>
+    </Grid>
+</Window>

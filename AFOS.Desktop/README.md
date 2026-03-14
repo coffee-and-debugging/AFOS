@@ -1,12 +1,12 @@
 # AFOS Desktop App — Admin & Chef
 
-WPF desktop application for managing the AFOS Tea Shop. Connects **directly to PostgreSQL** — the Express server does NOT need to be running.
+Cross-platform (Windows, Linux, macOS) desktop application built with **Avalonia UI + .NET 8**. Connects **directly to PostgreSQL** — the Express server does NOT need to be running.
 
 ---
 
 ## Requirements
 
-- Windows 10/11 (64-bit)
+- **Windows / Linux / macOS**
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 - PostgreSQL running with the `afos` database set up (same DB as the web app)
 
@@ -14,9 +14,24 @@ WPF desktop application for managing the AFOS Tea Shop. Connects **directly to P
 
 ## Setup
 
-### 1. Configure the database connection
+### 1. Install .NET 8 SDK
 
-Open `config.json` and update the connection string to match your PostgreSQL credentials:
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt install dotnet-sdk-8.0
+```
+
+**macOS:**
+```bash
+brew install dotnet-sdk
+```
+
+**Windows:**
+Download from https://dotnet.microsoft.com/download/dotnet/8.0
+
+### 2. Configure the database connection
+
+Edit `config.json` with your PostgreSQL credentials:
 
 ```json
 {
@@ -24,28 +39,26 @@ Open `config.json` and update the connection string to match your PostgreSQL cre
 }
 ```
 
-### 2. Restore and build
+### 3. Restore, build, and run
 
-Open **Command Prompt** or **PowerShell** in the `AFOS.Desktop` folder and run:
-
-```
+```bash
+cd AFOS.Desktop
 dotnet restore
-dotnet build
-```
-
-### 3. Run
-
-```
 dotnet run
 ```
 
-Or build a standalone executable:
+### 4. Publish standalone executable (optional)
 
-```
+```bash
+# Linux
+dotnet publish -c Release -r linux-x64 --self-contained
+
+# Windows
 dotnet publish -c Release -r win-x64 --self-contained
-```
 
-The output will be in `bin\Release\net8.0-windows\win-x64\publish\`.
+# macOS
+dotnet publish -c Release -r osx-x64 --self-contained
+```
 
 ---
 
@@ -61,10 +74,10 @@ The output will be in `bin\Release\net8.0-windows\win-x64\publish\`.
 ## Features
 
 ### Admin
-- **Dashboard** — stat cards, charts (orders by status, payment breakdown, revenue by method), full orders table with filtering, confirm cash payments
+- **Dashboard** — stat cards, bar charts (orders by status, revenue by method), payment breakdown, orders table with filtering, confirm cash payments
 - **Menu Management** — add/edit/delete tea and food items, toggle availability
-- **Tables & QR Codes** — add/remove tables, generate and download QR codes
+- **Tables & QR Codes** — add/remove tables, generate and download QR codes as PNG
 
 ### Chef
-- **Chef Station** — order cards with status, advance orders (pending → cooking → serving → completed), auto-refreshes every 5 seconds
+- **Chef Station** — order cards, advance status (pending → cooking → serving → completed), auto-refresh every 5 seconds
 - Filter tabs: Active, Serving, Completed, All

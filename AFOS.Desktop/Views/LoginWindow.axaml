@@ -1,0 +1,72 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:AFOS.Desktop.Converters"
+        x:Class="AFOS.Desktop.Views.LoginWindow"
+        Title="AFOS — Login"
+        Height="520" Width="420"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgBrush}">
+
+    <Window.Resources>
+        <conv:BoolToIsVisibleConverter x:Key="BoolVis"/>
+    </Window.Resources>
+
+    <Grid>
+        <Border VerticalAlignment="Center" HorizontalAlignment="Center"
+                Width="360" Background="White" CornerRadius="14"
+                Padding="40,36"
+                BoxShadow="0 2 20 0 #1A000000">
+            <StackPanel Spacing="0">
+
+                <StackPanel HorizontalAlignment="Center" Margin="0,0,0,24">
+                    <Border Background="{StaticResource PrimaryBrush}"
+                            CornerRadius="50" Width="60" Height="60"
+                            HorizontalAlignment="Center" Margin="0,0,0,12">
+                        <TextBlock Text="🍵" FontSize="28"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="AFOS" FontSize="26" FontWeight="Bold"
+                               Foreground="{StaticResource PrimaryBrush}"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="Tea Shop Management" FontSize="13"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                </StackPanel>
+
+                <TextBlock Text="Username" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                <TextBox x:Name="TxtUsername" Classes="input"
+                         Text="{Binding Username, Mode=TwoWay}"
+                         KeyDown="Input_KeyDown"/>
+
+                <TextBlock Text="Password" FontSize="12" FontWeight="SemiBold" Margin="0,14,0,5"/>
+                <TextBox x:Name="TxtPassword" Classes="input"
+                         PasswordChar="●" KeyDown="Input_KeyDown"/>
+
+                <Border Background="#fef2f2" CornerRadius="6" Padding="12,8"
+                        Margin="0,14,0,0"
+                        IsVisible="{Binding HasError}">
+                    <TextBlock Text="{Binding ErrorMessage}"
+                               Foreground="#b91c1c" FontSize="12" TextWrapping="Wrap"/>
+                </Border>
+
+                <Button x:Name="BtnLogin" Content="Login"
+                        Classes="primary"
+                        Margin="0,18,0,0" Height="40" FontSize="14"
+                        HorizontalAlignment="Stretch"
+                        IsEnabled="{Binding IsNotLoading}"
+                        Click="BtnLogin_Click"/>
+
+                <TextBlock Text="Authenticating..." HorizontalAlignment="Center"
+                           FontSize="12" Foreground="{StaticResource TextMutedBrush}"
+                           Margin="0,10,0,0"
+                           IsVisible="{Binding IsLoading}"/>
+
+                <TextBlock Text="Admin or Chef login only"
+                           HorizontalAlignment="Center" FontSize="11"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           Margin="0,20,0,0"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

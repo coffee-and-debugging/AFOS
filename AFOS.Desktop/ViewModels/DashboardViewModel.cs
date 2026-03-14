@@ -1,5 +1,5 @@
 using System.Collections.ObjectModel;
-using System.Windows.Media;
+using Avalonia.Media;
 using AFOS.Desktop.Database;
 using AFOS.Desktop.Models;
 
@@ -10,7 +10,7 @@ public class ChartBar
     public string Label { get; set; } = "";
     public double Value { get; set; }
     public double BarHeight { get; set; }
-    public SolidColorBrush BarBrush { get; set; } = Brushes.Gray;
+    public ISolidColorBrush BarBrush { get; set; } = Brushes.Gray;
     public string DisplayValue => ((int)Value).ToString();
     public string DisplayRs => $"Rs. {Value:0}";
 }
@@ -133,5 +133,5 @@ public class DashboardViewModel : BaseViewModel
     }
 
     private static SolidColorBrush Brush(string hex)
-        => new((Color)ColorConverter.ConvertFromString(hex));
+        => new(Color.Parse(hex));
 }

@@ -1,0 +1,226 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:AFOS.Desktop.Converters"
+        x:Class="AFOS.Desktop.Views.ChefWindow"
+        Title="AFOS — Chef Station"
+        Height="780" Width="1100"
+        MinHeight="600" MinWidth="800"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgBrush}">
+
+    <Window.Resources>
+        <conv:BoolToIsVisibleConverter x:Key="BoolVis"/>
+        <conv:NullToIsVisibleConverter x:Key="NullVis"/>
+        <conv:StatusToBrushConverter x:Key="StatusBg"/>
+        <conv:StatusToFgConverter x:Key="StatusFg"/>
+        <conv:PayStatusToBrushConverter x:Key="PayBg"/>
+        <conv:PayStatusToFgConverter x:Key="PayFg"/>
+        <conv:StatusToBorderBrushConverter x:Key="StatusBorder"/>
+    </Window.Resources>
+
+    <DockPanel>
+
+        <!-- Top Bar -->
+        <Border DockPanel.Dock="Top" Background="#2d6a4f" Padding="24,16">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Chef Station" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="{Binding WelcomeName, StringFormat='Welcome, {0}'}"
+                               FontSize="12" Foreground="White" Opacity="0.8"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <!-- New orders badge -->
+                    <Border Background="#fd7e14" CornerRadius="20" Padding="10,2"
+                            VerticalAlignment="Center"
+                            IsVisible="{Binding HasNewOrders}">
+                        <TextBlock Text="{Binding NewBadge}" Foreground="White"
+                                   FontSize="12" FontWeight="Bold"/>
+                    </Border>
+                    <Button Content="Logout" Click="BtnLogout_Click"
+                            VerticalAlignment="Center" Padding="14,6"
+                            Background="#33FFFFFF" Foreground="White"
+                            FontWeight="SemiBold" CornerRadius="8"
+                            BorderThickness="0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main content area -->
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="24,20" Spacing="20">
+
+                <!-- Stats Row -->
+                <Grid ColumnDefinitions="*,*,*,*">
+                    <!-- Pending -->
+                    <Border Background="White" CornerRadius="10" Padding="17,16" Margin="0,0,10,0"
+                            BoxShadow="0 2 8 0 #14000000" Grid.Column="0">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Pending}" FontSize="30" FontWeight="Bold" Foreground="#856404"/>
+                            <TextBlock Text="PENDING" FontSize="11.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       LetterSpacing="1" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- Cooking -->
+                    <Border Background="White" CornerRadius="10" Padding="17,16" Margin="5,0,5,0"
+                            BoxShadow="0 2 8 0 #14000000" Grid.Column="1">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Cooking}" FontSize="30" FontWeight="Bold" Foreground="#055160"/>
+                            <TextBlock Text="COOKING" FontSize="11.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       LetterSpacing="1" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- Serving -->
+                    <Border Background="White" CornerRadius="10" Padding="17,16" Margin="5,0,5,0"
+                            BoxShadow="0 2 8 0 #14000000" Grid.Column="2">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Serving}" FontSize="30" FontWeight="Bold" Foreground="#0a3622"/>
+                            <TextBlock Text="SERVING" FontSize="11.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       LetterSpacing="1" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- Completed -->
+                    <Border Background="White" CornerRadius="10" Padding="17,16" Margin="10,0,0,0"
+                            BoxShadow="0 2 8 0 #14000000" Grid.Column="3">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Completed}" FontSize="30" FontWeight="Bold" Foreground="#6c757d"/>
+                            <TextBlock Text="COMPLETED" FontSize="11.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       LetterSpacing="1" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Filter Tabs -->
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="BtnFilterActive" Content="Active" Classes="primary" Tag="active"
+                            Click="FilterBtn_Click" Padding="16,8"/>
+                    <Button x:Name="BtnFilterServing" Content="Serving" Classes="secondary" Tag="serving"
+                            Click="FilterBtn_Click" Padding="16,8"/>
+                    <Button x:Name="BtnFilterCompleted" Content="Completed" Classes="secondary" Tag="completed"
+                            Click="FilterBtn_Click" Padding="16,8"/>
+                    <Button x:Name="BtnFilterAll" Content="All" Classes="secondary" Tag="all"
+                            Click="FilterBtn_Click" Padding="16,8"/>
+                </StackPanel>
+
+                <!-- Order Cards -->
+                <ItemsControl ItemsSource="{Binding FilteredOrders}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="White" CornerRadius="10" Margin="0,0,14,14"
+                                    Width="320" BoxShadow="0 2 8 0 #14000000"
+                                    BorderThickness="4,0,0,0"
+                                    BorderBrush="{Binding Status, Converter={StaticResource StatusBorder}}">
+                                <StackPanel Margin="16,14" Spacing="10">
+
+                                    <!-- Header: Table + ShortId + Status badge + TimeAgo -->
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Spacing="2">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{Binding TableNumber, StringFormat='Table {0}'}"
+                                                           FontSize="15" FontWeight="Bold"/>
+                                                <TextBlock Text="{Binding ShortId, StringFormat='#{0}'}"
+                                                           FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding TimeAgo}" FontSize="11"
+                                                       Foreground="{StaticResource TextMutedBrush}"/>
+                                        </StackPanel>
+                                        <Border Grid.Column="1" CornerRadius="20" Padding="10,3"
+                                                VerticalAlignment="Top"
+                                                Background="{Binding Status, Converter={StaticResource StatusBg}}">
+                                            <TextBlock Text="{Binding StatusDisplay}"
+                                                       FontSize="10.5" FontWeight="Bold"
+                                                       LetterSpacing="0.5"
+                                                       Foreground="{Binding Status, Converter={StaticResource StatusFg}}"/>
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- Items list -->
+                                    <ItemsControl ItemsSource="{Binding Items}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid ColumnDefinitions="*,Auto" Margin="0,3">
+                                                    <TextBlock Text="{Binding Name}" FontSize="13"/>
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding Quantity, StringFormat='x{0}'}"
+                                                               FontSize="13" FontWeight="Bold"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <!-- Customer Note -->
+                                    <Border Background="{StaticResource WarningBgBrush}" CornerRadius="6" Padding="10,6"
+                                            IsVisible="{Binding CustomerNote, Converter={StaticResource NullVis}}">
+                                        <TextBlock Text="{Binding CustomerNote, StringFormat='Note: {0}'}" FontSize="12"
+                                                   Foreground="{StaticResource WarningTextBrush}" TextWrapping="Wrap"/>
+                                    </Border>
+
+                                    <!-- Progress dots -->
+                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                        <Ellipse Width="10" Height="10"
+                                                 Fill="{StaticResource PrimaryBrush}"/>
+                                        <Rectangle Width="18" Height="2"
+                                                   Fill="{Binding ProgressLine1Brush}"/>
+                                        <Ellipse Width="10" Height="10"
+                                                 Fill="{Binding ProgressDot2Brush}"/>
+                                        <Rectangle Width="18" Height="2"
+                                                   Fill="{Binding ProgressLine2Brush}"/>
+                                        <Ellipse Width="10" Height="10"
+                                                 Fill="{Binding ProgressDot3Brush}"/>
+                                        <TextBlock Text="{Binding StatusDisplay}" FontSize="11"
+                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                   VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                    </StackPanel>
+
+                                    <!-- Action button (non-completed) -->
+                                    <Button Classes="primary"
+                                            Content="{Binding NextActionLabel}"
+                                            IsVisible="{Binding CanAdvance}"
+                                            Tag="{Binding}"
+                                            Click="BtnAdvance_Click"
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Center"
+                                            Padding="8,8"/>
+
+                                    <!-- Completed box -->
+                                    <Border Background="#f8f9fa" CornerRadius="6" Padding="8,6"
+                                            IsVisible="{Binding IsCompleted}"
+                                            HorizontalAlignment="Stretch">
+                                        <TextBlock Text="{Binding CompletedText}"
+                                                   FontSize="12" Foreground="#6c757d"
+                                                   HorizontalAlignment="Center"/>
+                                    </Border>
+
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Empty state -->
+                <Border IsVisible="{Binding !FilteredOrders.Count}" Padding="40"
+                        HorizontalAlignment="Center">
+                    <StackPanel HorizontalAlignment="Center" Spacing="8">
+                        <TextBlock Text="No orders" FontSize="16" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Orders matching this filter will appear here."
+                                   FontSize="13" Foreground="{StaticResource TextMutedBrush}"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+
+    </DockPanel>
+</Window>

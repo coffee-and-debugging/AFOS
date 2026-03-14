@@ -13,12 +13,9 @@ public class RelayCommand : ICommand
         _canExecute = canExecute;
     }
 
-    public event EventHandler? CanExecuteChanged
-    {
-        add    => CommandManager.RequerySuggested += value;
-        remove => CommandManager.RequerySuggested -= value;
-    }
+    public event EventHandler? CanExecuteChanged;
 
+    public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     public bool CanExecute(object? parameter) => _canExecute?.Invoke() ?? true;
     public void Execute(object? parameter)    => _execute();
 }
@@ -34,12 +31,9 @@ public class RelayCommand<T> : ICommand
         _canExecute = canExecute;
     }
 
-    public event EventHandler? CanExecuteChanged
-    {
-        add    => CommandManager.RequerySuggested += value;
-        remove => CommandManager.RequerySuggested -= value;
-    }
+    public event EventHandler? CanExecuteChanged;
 
+    public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     public bool CanExecute(object? parameter) => _canExecute?.Invoke((T?)parameter) ?? true;
     public void Execute(object? parameter)    => _execute((T?)parameter);
 }
@@ -56,11 +50,7 @@ public class AsyncRelayCommand : ICommand
         _canExecute = canExecute;
     }
 
-    public event EventHandler? CanExecuteChanged
-    {
-        add    => CommandManager.RequerySuggested += value;
-        remove => CommandManager.RequerySuggested -= value;
-    }
+    public event EventHandler? CanExecuteChanged;
 
     public bool CanExecute(object? parameter) => !_isExecuting && (_canExecute?.Invoke() ?? true);
 
@@ -68,12 +58,12 @@ public class AsyncRelayCommand : ICommand
     {
         if (!CanExecute(parameter)) return;
         _isExecuting = true;
-        CommandManager.InvalidateRequerySuggested();
+        CanExecuteChanged?.Invoke(this, EventArgs.Empty);
         try   { await _execute(); }
         finally
         {
             _isExecuting = false;
-            CommandManager.InvalidateRequerySuggested();
+            CanExecuteChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 }

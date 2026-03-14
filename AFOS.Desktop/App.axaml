@@ -1,0 +1,165 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="AFOS.Desktop.App"
+             RequestedThemeVariant="Light">
+
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
+
+        <!-- ── Color Resources ──────────────────────────────── -->
+
+
+        <!-- ── Button: primary ───────────────────────────────── -->
+        <Style Selector="Button.primary">
+            <Setter Property="Background"    Value="#2d6a4f"/>
+            <Setter Property="Foreground"    Value="White"/>
+            <Setter Property="CornerRadius"  Value="10"/>
+            <Setter Property="Padding"       Value="18,8"/>
+            <Setter Property="FontSize"      Value="13.5"/>
+            <Setter Property="FontWeight"    Value="SemiBold"/>
+            <Setter Property="Cursor"        Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1b4332"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.primary:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+
+        <!-- ── Button: danger ────────────────────────────────── -->
+        <Style Selector="Button.danger">
+            <Setter Property="Background"    Value="#c0392b"/>
+            <Setter Property="Foreground"    Value="White"/>
+            <Setter Property="CornerRadius"  Value="10"/>
+            <Setter Property="Padding"       Value="18,8"/>
+            <Setter Property="FontSize"      Value="13.5"/>
+            <Setter Property="FontWeight"    Value="SemiBold"/>
+            <Setter Property="Cursor"        Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#a93226"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+        <!-- ── Button: secondary ─────────────────────────────── -->
+        <Style Selector="Button.secondary">
+            <Setter Property="Background"    Value="#dee2e6"/>
+            <Setter Property="Foreground"    Value="#1b2e22"/>
+            <Setter Property="CornerRadius"  Value="10"/>
+            <Setter Property="Padding"       Value="18,8"/>
+            <Setter Property="FontSize"      Value="13.5"/>
+            <Setter Property="FontWeight"    Value="SemiBold"/>
+            <Setter Property="Cursor"        Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#c8cdd0"/>
+            <Setter Property="Foreground" Value="#1b2e22"/>
+        </Style>
+
+        <!-- ── Button: warning (confirm cash) ────────────────── -->
+        <Style Selector="Button.warning">
+            <Setter Property="Background"    Value="#2d6a4f"/>
+            <Setter Property="Foreground"    Value="White"/>
+            <Setter Property="CornerRadius"  Value="10"/>
+            <Setter Property="Padding"       Value="12,5"/>
+            <Setter Property="FontSize"      Value="12"/>
+            <Setter Property="FontWeight"    Value="SemiBold"/>
+            <Setter Property="Cursor"        Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.warning:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1b4332"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+        <!-- ── Button: small ─────────────────────────────────── -->
+        <Style Selector="Button.small">
+            <Setter Property="Background"    Value="#dee2e6"/>
+            <Setter Property="Foreground"    Value="#1b2e22"/>
+            <Setter Property="CornerRadius"  Value="10"/>
+            <Setter Property="Padding"       Value="12,5"/>
+            <Setter Property="FontSize"      Value="12"/>
+            <Setter Property="FontWeight"    Value="SemiBold"/>
+            <Setter Property="Cursor"        Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="Button.small:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#c8cdd0"/>
+            <Setter Property="Foreground" Value="#1b2e22"/>
+        </Style>
+
+        <!-- ── Sidebar nav button ────────────────────────────── -->
+        <Style Selector="Button.nav">
+            <Setter Property="Background"                     Value="Transparent"/>
+            <Setter Property="Foreground"                     Value="#D9FFFFFF"/>
+            <Setter Property="FontWeight"                     Value="Medium"/>
+            <Setter Property="BorderThickness"                Value="0"/>
+            <Setter Property="HorizontalAlignment"            Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment"     Value="Left"/>
+            <Setter Property="Padding"                        Value="20,10"/>
+            <Setter Property="FontSize"                       Value="14"/>
+            <Setter Property="Cursor"                         Value="Hand"/>
+            <Setter Property="CornerRadius"                   Value="0"/>
+        </Style>
+        <Style Selector="Button.nav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#26FFFFFF"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.nav-active">
+            <Setter Property="Background"                     Value="#26FFFFFF"/>
+            <Setter Property="Foreground"                     Value="White"/>
+            <Setter Property="FontWeight"                     Value="Medium"/>
+            <Setter Property="BorderThickness"                Value="0"/>
+            <Setter Property="HorizontalAlignment"            Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment"     Value="Left"/>
+            <Setter Property="Padding"                        Value="20,10"/>
+            <Setter Property="FontSize"                       Value="14"/>
+            <Setter Property="Cursor"                         Value="Hand"/>
+            <Setter Property="CornerRadius"                   Value="0"/>
+        </Style>
+        <Style Selector="Button.nav-active:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#26FFFFFF"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+        <!-- ── TextBox: input ────────────────────────────────── -->
+        <Style Selector="TextBox.input">
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding"      Value="9,8"/>
+            <Setter Property="FontSize"     Value="13"/>
+        </Style>
+        <Style Selector="TextBox.input:focus">
+            <Setter Property="BorderBrush" Value="#40916c"/>
+        </Style>
+
+        <!-- ── Card border ───────────────────────────────────── -->
+        <Style Selector="Border.card">
+            <Setter Property="Background"    Value="White"/>
+            <Setter Property="CornerRadius"  Value="10"/>
+            <Setter Property="Padding"       Value="20"/>
+            <Setter Property="BoxShadow"     Value="0 2 8 0 #14000000"/>
+        </Style>
+
+    </Application.Styles>
+
+    <Application.Resources>
+        <SolidColorBrush x:Key="PrimaryBrush"      Color="#2d6a4f"/>
+        <SolidColorBrush x:Key="PrimaryHoverBrush"  Color="#1b4332"/>
+        <SolidColorBrush x:Key="PrimaryLightBrush"  Color="#40916c"/>
+        <SolidColorBrush x:Key="PrimaryPaleBrush"   Color="#d8f3dc"/>
+        <SolidColorBrush x:Key="AccentBrush"        Color="#74c69d"/>
+        <SolidColorBrush x:Key="BgBrush"            Color="#f4f7f4"/>
+        <SolidColorBrush x:Key="TextBrush"          Color="#1b2e22"/>
+        <SolidColorBrush x:Key="TextMutedBrush"     Color="#6c757d"/>
+        <SolidColorBrush x:Key="BorderColorBrush"   Color="#dee2e6"/>
+        <SolidColorBrush x:Key="DangerBrush"        Color="#c0392b"/>
+        <SolidColorBrush x:Key="WarningBgBrush"     Color="#fff3cd"/>
+        <SolidColorBrush x:Key="WarningTextBrush"   Color="#856404"/>
+        <SolidColorBrush x:Key="SidebarBrush"       Color="#1b4332"/>
+    </Application.Resources>
+</Application>

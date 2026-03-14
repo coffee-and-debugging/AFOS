@@ -1,0 +1,160 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:AFOS.Desktop.Converters"
+             x:Class="AFOS.Desktop.Views.Pages.MenuPage">
+
+    <UserControl.Resources>
+        <conv:BoolToIsVisibleConverter    x:Key="BoolVis"/>
+        <conv:NullToIsVisibleConverter    x:Key="NullVis"/>
+        <conv:AvailableToTextConverter    x:Key="AvailText"/>
+        <conv:AvailableToFgConverter      x:Key="AvailFg"/>
+        <conv:AvailableToBgConverter      x:Key="AvailBg"/>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="28,24">
+        <StackPanel Spacing="20">
+
+            <!-- Header -->
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="Menu Management" FontSize="22" FontWeight="Bold"
+                           Foreground="{StaticResource TextBrush}" VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Classes="primary" Click="BtnAddItem_Click">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="+" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <TextBlock Text="Add Item" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- Error message -->
+            <Border Background="#fef2f2" CornerRadius="6" Padding="14,10"
+                    IsVisible="{Binding StatusMessage, Converter={StaticResource NullVis}}">
+                <TextBlock Text="{Binding StatusMessage}"
+                           Foreground="#b91c1c" FontSize="12" TextWrapping="Wrap"/>
+            </Border>
+
+            <!-- Loading -->
+            <TextBlock Text="Loading menu items..." FontSize="13"
+                       Foreground="{StaticResource TextMutedBrush}"
+                       HorizontalAlignment="Center"
+                       IsVisible="{Binding IsLoading, Converter={StaticResource BoolVis}}"/>
+
+            <!-- Tea Items Section -->
+            <Border Classes="card">
+                <StackPanel Spacing="14">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Border Background="{StaticResource PrimaryPaleBrush}"
+                                CornerRadius="12" Padding="12,5">
+                            <TextBlock Text="Tea Items" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{StaticResource PrimaryBrush}"/>
+                        </Border>
+                    </StackPanel>
+
+                    <DataGrid ItemsSource="{Binding TeaItems}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserReorderColumns="False"
+                              CanUserResizeColumns="True"
+                              GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column"
+                              BorderThickness="1"
+                              BorderBrush="{StaticResource BorderColorBrush}"
+                              CornerRadius="6">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="1.5*"/>
+                            <DataGridTextColumn Header="Price" Binding="{Binding PriceDisplay}" Width="100"/>
+                            <DataGridTemplateColumn Header="Status" Width="110">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{Binding Available, Converter={StaticResource AvailBg}}"
+                                                CornerRadius="10" Padding="10,3"
+                                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Available, Converter={StaticResource AvailText}}"
+                                                       Foreground="{Binding Available, Converter={StaticResource AvailFg}}"
+                                                       FontSize="11" FontWeight="SemiBold"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Actions" Width="200">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="6"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Button Content="Edit" Classes="small"
+                                                    Tag="{Binding}" Click="BtnEdit_Click"/>
+                                            <Button Content="Toggle" Classes="warning"
+                                                    Tag="{Binding}" Click="BtnToggle_Click"/>
+                                            <Button Content="Delete" Classes="danger"
+                                                    Tag="{Binding}" Click="BtnDelete_Click"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </Border>
+
+            <!-- Food Items Section -->
+            <Border Classes="card">
+                <StackPanel Spacing="14">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Border Background="#fff3cd"
+                                CornerRadius="12" Padding="12,5">
+                            <TextBlock Text="Food Items" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="#856404"/>
+                        </Border>
+                    </StackPanel>
+
+                    <DataGrid ItemsSource="{Binding FoodItems}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserReorderColumns="False"
+                              CanUserResizeColumns="True"
+                              GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column"
+                              BorderThickness="1"
+                              BorderBrush="{StaticResource BorderColorBrush}"
+                              CornerRadius="6">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                            <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="1.5*"/>
+                            <DataGridTextColumn Header="Price" Binding="{Binding PriceDisplay}" Width="100"/>
+                            <DataGridTemplateColumn Header="Status" Width="110">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{Binding Available, Converter={StaticResource AvailBg}}"
+                                                CornerRadius="10" Padding="10,3"
+                                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Available, Converter={StaticResource AvailText}}"
+                                                       Foreground="{Binding Available, Converter={StaticResource AvailFg}}"
+                                                       FontSize="11" FontWeight="SemiBold"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="Actions" Width="200">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="6"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Button Content="Edit" Classes="small"
+                                                    Tag="{Binding}" Click="BtnEdit_Click"/>
+                                            <Button Content="Toggle" Classes="warning"
+                                                    Tag="{Binding}" Click="BtnToggle_Click"/>
+                                            <Button Content="Delete" Classes="danger"
+                                                    Tag="{Binding}" Click="BtnDelete_Click"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
