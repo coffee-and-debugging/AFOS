@@ -1,248 +1,162 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../../api/client';
+import { useCallback, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { api, ApiError } from '../../api/client';
+import GuestHeader from '../../components/GuestHeader';
+import Icon, { type IconName } from '../../components/Icon';
+import Modal from '../../components/Modal';
 import PaymentGateway from '../../components/PaymentGateway';
-import type { Order, OrderStatus } from '../../types';
+import { GATEWAYS, type Gateway } from '../../lib/gateways';
+import { EmptyState, ErrorState, LoadingState } from '../../components/States';
+import { usePolling, useRestaurant, useToast } from '../../hooks';
+import { billLabel, formatTime, orderPlace, PAYMENT_LABEL } from '../../lib/format';
+import type { OrderStatus as Status } from '../../types';
 
-const STEPS: { status: OrderStatus; label: string; icon: string }[] = [
-  { status: 'pending', label: 'Received', icon: '✓' },
-  { status: 'cooking', label: 'Cooking', icon: '♨' },
-  { status: 'serving', label: 'Serving', icon: '☕' },
-  { status: 'completed', label: 'Done', icon: '★' },
+const STEPS: { status: Status; label: string; icon: IconName }[] = [
+  { status: 'pending', label: 'Received', icon: 'check' },
+  { status: 'cooking', label: 'Cooking', icon: 'flame' },
+  { status: 'serving', label: 'Ready', icon: 'bell' },
+  { status: 'completed', label: 'Served', icon: 'star' },
 ];
 
-type PayStep = 'choose' | 'esewa' | 'khalti';
+const MESSAGE: Record<Status, { tone: string; text: string }> = {
+  pending: { tone: 'alert-warning', text: 'Order received — the kitchen will start on it shortly.' },
+  cooking: { tone: 'alert-info', text: 'The kitchen is preparing your order.' },
+  serving: { tone: 'alert-success', text: 'Your order is ready! It will be brought to your table.' },
+  completed: { tone: 'alert-success', text: 'Enjoy your meal — thank you for visiting!' },
+  cancelled: { tone: 'alert-error', text: 'This order was cancelled. Please ask our staff if this is unexpected.' },
+};
 
 export default function OrderStatus() {
-  const { orderId } = useParams<{ orderId: string }>();
-  const navigate = useNavigate();
-  const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [showPayModal, setShowPayModal] = useState(false);
-  const [payStep, setPayStep] = useState<PayStep>('choose');
+  const { orderId = '' } = useParams<{ orderId: string }>();
+  const { money } = useRestaurant();
+  const toast = useToast();
+  const { data: order, error, loading, retry, setData } = usePolling(
+    useCallback(() => api.orders.getById(orderId), [orderId]),
+    5000,
+  );
+  const [payWith, setPayWith] = useState<Gateway | 'choose' | null>(null);
 
-  const fetchOrder = useCallback(async () => {
-    try {
-      const data = await api.orders.getById(orderId!);
-      setOrder(data);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
+  if (loading && !order) return <><GuestHeader title="Your order" /><LoadingState /></>;
+  if (!order) {
+    if (error instanceof ApiError && error.status === 404) {
+      return <><GuestHeader title="Your order" /><EmptyState icon="orders" title="Order not found" text="Please check the link or ask our staff for help." /></>;
     }
-  }, [orderId]);
-
-  useEffect(() => {
-    fetchOrder();
-    const id = setInterval(fetchOrder, 5000);
-    return () => clearInterval(id);
-  }, [fetchOrder]);
-
-  async function handleGatewaySuccess(method: 'esewa' | 'khalti') {
-    try {
-      const updated = await api.orders.processPayment(orderId!, method);
-      setOrder(updated);
-      setShowPayModal(false);
-      setPayStep('choose');
-    } catch (err) {
-      alert((err as Error).message);
-    }
+    return <><GuestHeader title="Your order" /><ErrorState error={error} onRetry={retry} /></>;
   }
 
-  function openPayModal() {
-    setPayStep('choose');
-    setShowPayModal(true);
+  const current = STEPS.findIndex((s) => s.status === order.status);
+
+  async function paid(method: Gateway) {
+    try {
+      const updated = await api.orders.processPayment(order!.id, method);
+      setData(() => updated);
+      setPayWith(null);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
   }
-
-  if (loading) return <div style={{ padding: '2rem' }}><div className="spinner" /></div>;
-  if (error || !order) return <div style={{ padding: '2rem' }}><div className="alert alert-error">{error || 'Order not found'}</div></div>;
-
-  const currentStep = STEPS.findIndex((s) => s.status === order.status);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f3ef' }}>
-      <header className="menu-hero">
-        <button
-          className="cart-header-btn"
-          onClick={() => navigate(`/table/${order.tableId}`)}
-          title="New Order"
-          style={{ fontSize: '0.75rem', width: 'auto', padding: '0 12px', borderRadius: 20, fontWeight: 700, letterSpacing: '0.02em' }}
-        >
-          + New Order
-        </button>
-        <div className="menu-hero-inner">
-          <h1 className="menu-shop-title" style={{ fontSize: '1.6rem' }}>Order Status</h1>
-          <div className="menu-table-badge">Table {order.tableNumber}</div>
-          <p className="menu-shop-sub">#{order.id.slice(0, 8)}</p>
-        </div>
-      </header>
+    <div className="guest">
+      <GuestHeader
+        kicker="Thanks for ordering"
+        title="Your order"
+        chip={`${orderPlace(order)} · Bill ${billLabel(order)}`}
+        action={order.tableId && (
+          <Link to={`/table/${order.tableId}`} className="btn btn-accent btn-sm">
+            <Icon name="plus" size={14} /> Order more
+          </Link>
+        )}
+      />
 
-      <div className="order-status-page">
-        {/* Status progress */}
-        <div className="card">
-          <h2 style={{ marginBottom: '0.25rem' }}>Order Progress</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0 0 1rem' }}>
-            Placed at {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </p>
-
-          <div className="status-progress">
-            {STEPS.map((step, i) => {
-              const isDone = i < currentStep;
-              const isActive = i === currentStep;
-              return (
-                <div key={step.status} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                  <div className="status-step">
-                    <div className={`status-dot ${isActive ? 'active' : isDone ? 'done' : ''}`}>{step.icon}</div>
-                    <div className="status-label">{step.label}</div>
-                  </div>
-                  {i < STEPS.length - 1 && <div className={`status-line ${isDone ? 'done' : ''}`} />}
+      <main className="guest-body stack">
+        <section className="card">
+          <div className="card-header" style={{ marginBottom: 0 }}>
+            <h2 className="card-title">Progress</h2>
+            <span className="subtle">Placed at {formatTime(order.createdAt)}</span>
+          </div>
+          <div className="steps">
+            {STEPS.map((step, i) => (
+              <div key={step.status} className="row" style={{ flex: i < STEPS.length - 1 ? 1 : 0, gap: 0, flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+                <div className="step">
+                  <span className={`step-dot${i === current ? ' is-active' : i < current ? ' is-done' : ''}`}>
+                    <Icon name={step.icon} size={16} />
+                  </span>
+                  <span className="step-label">{step.label}</span>
                 </div>
-              );
-            })}
+                {i < STEPS.length - 1 && <span className={`step-line${i < current ? ' is-done' : ''}`} />}
+              </div>
+            ))}
           </div>
+          <p className={`alert ${MESSAGE[order.status].tone}`} style={{ marginBottom: 0 }}>{MESSAGE[order.status].text}</p>
+        </section>
 
-          {order.status === 'pending' && (
-            <div className="alert" style={{ background: '#fff3cd', color: '#856404', border: '1px solid #ffecb5', textAlign: 'center' }}>
-              Order received — waiting for the kitchen
-            </div>
-          )}
-          {order.status === 'cooking' && (
-            <div className="alert alert-info" style={{ textAlign: 'center' }}>
-              The chef is preparing your order...
-            </div>
-          )}
-          {order.status === 'serving' && (
-            <div className="alert alert-success" style={{ textAlign: 'center', fontWeight: 600 }}>
-              Your order is ready! Our staff will bring it to your table shortly.
-            </div>
-          )}
-          {order.status === 'completed' && (
-            <div className="alert alert-success" style={{ textAlign: 'center', fontWeight: 600 }}>
-              Order complete — thank you for visiting!
-            </div>
-          )}
-        </div>
-
-        {/* Order items */}
-        <div className="card" style={{ marginTop: '1rem' }}>
-          <h3 style={{ marginBottom: '0.75rem' }}>Order Details</h3>
-          {order.items.map((item, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: i < order.items.length - 1 ? '1px solid var(--border)' : 'none' }}>
-              <span>{item.name} <span style={{ color: 'var(--text-muted)' }}>×{item.quantity}</span></span>
-              <span>Rs. {item.subtotal.toLocaleString()}</span>
-            </div>
-          ))}
-          {order.customerNote && (
-            <p style={{ marginTop: 10, fontSize: '0.85rem', color: 'var(--text-muted)', background: '#fff3cd', padding: '6px 10px', borderRadius: 6 }}>
-              Note: {order.customerNote}
-            </p>
-          )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.05rem', marginTop: 12, paddingTop: 10, borderTop: '2px solid var(--border)' }}>
-            <span>Total</span>
-            <span>Rs. {order.totalAmount.toLocaleString()}</span>
+        <section className="card">
+          <h2 className="card-title" style={{ marginBottom: 'var(--space-3)' }}>Details</h2>
+          <ul className="line-items">
+            {order.items.map((item, i) => (
+              <li key={i}>
+                <span>{item.name} <span className="muted">× {item.quantity}</span></span>
+                <span className="nowrap">{money(item.subtotal)}</span>
+              </li>
+            ))}
+          </ul>
+          {order.customerNote && <p className="ticket-note" style={{ marginTop: 'var(--space-3)' }}>Note: {order.customerNote}</p>}
+          <div className="totals section-gap">
+            <div><span>Subtotal</span><span>{money(order.subtotal)}</span></div>
+            {order.discount > 0 && <div><span>Discount</span><span>−{money(order.discount)}</span></div>}
+            {order.serviceCharge > 0 && <div><span>Service charge</span><span>{money(order.serviceCharge)}</span></div>}
+            {order.tax > 0 && <div><span>VAT</span><span>{money(order.tax)}</span></div>}
+            <div className="grand"><span>Total</span><span>{money(order.totalAmount)}</span></div>
           </div>
-        </div>
+        </section>
 
-        {/* Payment */}
-        <div className="card" style={{ marginTop: '1rem', marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <h3 style={{ margin: 0 }}>Payment</h3>
+        {order.status !== 'cancelled' && <section className="card">
+          <div className="card-header">
+            <h2 className="card-title">Payment</h2>
             <span className={`badge badge-${order.paymentStatus}`}>
-              {order.paymentStatus === 'paid' ? 'Paid' : order.paymentStatus === 'pending_counter' ? 'Pending (Counter)' : 'Unpaid'}
+              {order.paymentStatus === 'paid' ? 'Paid' : order.paymentStatus === 'pending_counter' ? 'Pay at counter' : 'Unpaid'}
             </span>
           </div>
-
           {order.paymentStatus === 'paid' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#d1e7dd', borderRadius: 8 }}>
-              <span style={{ fontSize: '1.3rem' }}>✓</span>
-              <div>
-                <div style={{ fontWeight: 700, color: '#0a3622' }}>Payment Confirmed</div>
-                <div style={{ fontSize: '0.8rem', color: '#155724' }}>
-                  Rs. {order.totalAmount.toLocaleString()} via {order.paymentMethod?.toUpperCase()}
-                </div>
-              </div>
-            </div>
+            <p className="alert alert-success" style={{ marginBottom: 0 }}>
+              {money(order.totalAmount)} received via {order.paymentMethod ? PAYMENT_LABEL[order.paymentMethod] : 'counter'}. Thank you!
+            </p>
           )}
-
           {order.paymentStatus === 'pending_counter' && (
-            <div style={{ padding: '10px 14px', background: '#fff3cd', borderRadius: 8 }}>
-              <div style={{ fontWeight: 600, color: '#856404' }}>Please pay at the counter</div>
-              <div style={{ fontSize: '0.85rem', color: '#856404', marginTop: 2 }}>
-                Amount due: Rs. {order.totalAmount.toLocaleString()}
-              </div>
-            </div>
+            <p className="alert alert-warning" style={{ marginBottom: 0 }}>Please pay {money(order.totalAmount)} at the counter.</p>
           )}
-
           {order.paymentStatus === 'unpaid' && (
-            <div>
-              <div style={{ padding: '10px 14px', background: '#f8f9fa', borderRadius: 8, marginBottom: 10, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                You can pay at the counter — or pay online below.
-              </div>
-              <button
-                className="btn btn-primary"
-                style={{ width: '100%', justifyContent: 'center', padding: '13px', fontSize: '1rem' }}
-                onClick={openPayModal}
-              >
-                Pay Online — Rs. {order.totalAmount.toLocaleString()}
+            <>
+              <p className="muted" style={{ marginBottom: 'var(--space-4)' }}>Pay at the counter when you leave, or pay now online.</p>
+              <button className="btn btn-primary btn-block btn-lg" onClick={() => setPayWith('choose')}>
+                Pay online · {money(order.totalAmount)}
               </button>
-            </div>
+            </>
           )}
-        </div>
-      </div>
+        </section>}
+      </main>
 
-      {/* Payment modal */}
-      {showPayModal && (
-        <div className="modal-overlay" onClick={() => { setShowPayModal(false); setPayStep('choose'); }}>
-          <div className="modal" style={{ padding: 0, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
-            {payStep === 'choose' && (
-              <>
-                <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h2 style={{ margin: 0 }}>Pay Online</h2>
-                  <button className="modal-close" onClick={() => setShowPayModal(false)}>&times;</button>
-                </div>
-                <div style={{ padding: '1.5rem' }}>
-                  <p style={{ color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
-                    Total: <strong>Rs. {order.totalAmount.toLocaleString()}</strong>
-                  </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {/* eSewa */}
-                    <button
-                      className="pay-option-btn"
-                      style={{ '--gw-color': '#60BB47' } as React.CSSProperties}
-                      onClick={() => setPayStep('esewa')}
-                    >
-                      <span style={{ fontWeight: 900, fontSize: '1rem' }}>e<span style={{ fontWeight: 400 }}>Sewa</span></span>
-                      <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Pay with eSewa</span>
-                    </button>
-
-                    {/* Khalti */}
-                    <button
-                      className="pay-option-btn"
-                      style={{ '--gw-color': '#5C2D91' } as React.CSSProperties}
-                      onClick={() => setPayStep('khalti')}
-                    >
-                      <span style={{ fontWeight: 700, fontSize: '1rem' }}>Khalti</span>
-                      <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Pay with Khalti</span>
-                    </button>
-
-                  </div>
-                </div>
-              </>
-            )}
-
-            {(payStep === 'esewa' || payStep === 'khalti') && (
-              <div style={{ padding: '1rem' }}>
-                <PaymentGateway
-                  gateway={payStep}
-                  amount={order.totalAmount}
-                  onSuccess={() => handleGatewaySuccess(payStep)}
-                  onCancel={() => setPayStep('choose')}
-                />
-              </div>
-            )}
-          </div>
-        </div>
+      {payWith && (
+        <Modal title={payWith === 'choose' ? 'Pay online' : `Pay with ${GATEWAYS[payWith].name}`} onClose={() => setPayWith(null)}>
+          {payWith === 'choose' ? (
+            <div className="stack" style={{ gap: 'var(--space-3)' }}>
+              {(Object.keys(GATEWAYS) as Gateway[]).map((g) => (
+                <button key={g} className="pay-option" style={{ '--gw': GATEWAYS[g].color } as React.CSSProperties} onClick={() => setPayWith(g)}>
+                  <strong>{GATEWAYS[g].name}</strong>
+                  <span className="subtle">Pay {money(order.totalAmount)} with {GATEWAYS[g].name}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <PaymentGateway
+              gateway={payWith}
+              amount={money(order.totalAmount)}
+              onSuccess={() => paid(payWith)}
+              onCancel={() => setPayWith('choose')}
+            />
+          )}
+        </Modal>
       )}
     </div>
   );

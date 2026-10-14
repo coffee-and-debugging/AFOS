@@ -1,0 +1,78 @@
+# PostgreSQL + API + daily backups. Start everything with:  npm run up
+# Values come from the root .env file (copy .env.example to .env first).
+name: afos
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-afos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-afos}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  api:
+    build: ./server
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-afos}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-afos}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:4173}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?Set SEED_ADMIN_PASSWORD in .env}
+      SEED_CHEF_PASSWORD: ${SEED_CHEF_PASSWORD:?Set SEED_CHEF_PASSWORD in .env}
+      SEED_CASHIER_PASSWORD: ${SEED_CASHIER_PASSWORD:?Set SEED_CASHIER_PASSWORD in .env}
+    ports:
+      - "${API_PORT:-3001}:3001"
+    volumes:
+      - ./server/uploads:/app/uploads
+    # Health check is defined in server/Dockerfile (GET /health)
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-afos}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-afos}
+      RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          file=/backups/afos-$$(date +%Y-%m-%d_%H%M).sql.gz
+          if pg_dump --clean --if-exists --no-owner -f /tmp/afos.sql && gzip -c /tmp/afos.sql > "$$file"; then
+            echo "{\"level\":\"info\",\"msg\":\"backup written\",\"file\":\"$$file\"}"
+          else
+            echo "{\"level\":\"error\",\"msg\":\"backup failed\"}"
+            rm -f "$$file"
+          fi
+          rm -f /tmp/afos.sql
+          find /backups -name 'afos-*.sql.gz' -mtime +$$RETENTION_DAYS -delete
+          sleep 86400
+        done
+
+volumes:
+  pgdata:

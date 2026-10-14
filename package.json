@@ -1,22 +1,27 @@
 {
   "name": "afos",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
+    "start": "npm run up && npm run dev",
+    "up": "docker compose up -d --build --wait",
+    "down": "docker compose down",
+    "logs": "docker compose logs -f --tail=100 api",
     "dev": "vite",
-    "dev:all": "concurrently -n \"frontend,backend\" -c \"cyan,green\" \"npm run dev\" \"npm run server:dev\"",
-    "server:dev": "cd server && npm run dev",
+    "dev:local": "concurrently -n web,api -c cyan,green \"vite\" \"npm --prefix server run dev\"",
     "build": "tsc -b && vite build",
-    "start": "cd server && NODE_ENV=production node index.js",
-    "db:setup": "cd server && npm run db:setup",
-    "db:migrate": "cd server && npm run db:migrate",
-    "db:seed": "cd server && npm run db:seed",
+    "preview": "vite preview",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "server:install": "npm --prefix server install",
+    "db:up": "docker compose up -d --wait db",
+    "db:migrate": "npm --prefix server run db:migrate",
+    "db:seed": "npm --prefix server run db:seed",
+    "db:setup": "npm --prefix server run db:setup",
+    "db:demo": "npm --prefix server run db:demo",
+    "plan": "npm --prefix server run plan --"
   },
   "dependencies": {
-    "concurrently": "^9.2.1",
     "cropperjs": "^1.6.2",
     "react": "^19.2.0",
     "react-cropper": "^2.3.3",
@@ -30,6 +35,7 @@
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
+    "concurrently": "^9.2.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
@@ -37,5 +43,8 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^7.2.4"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

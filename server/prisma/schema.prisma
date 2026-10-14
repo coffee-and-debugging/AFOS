@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -11,18 +12,56 @@ model User {
   id       String @id @default(uuid())
   username String @unique
   password String
-  role     String
+  role     String // admin | cashier | chef
   name     String
 }
 
+// Single-row table (id = 1) holding the restaurant's details and billing rules.
+model Restaurant {
+  id                Int      @id @default(1)
+  name              String
+  tagline           String   @default("")
+  currency          String   @default("Rs.")
+  address           String   @default("")
+  phone             String   @default("")
+  taxRate           Float    @default(13)
+  serviceChargeRate Float    @default(10)
+  receiptFooter     String   @default("Thank you for dining with us!")
+  plan              String   @default("pro") // free | pro — gates premium features (see lib/plans.js)
+  updatedAt         DateTime @updatedAt
+}
+
+model Category {
+  id        Int        @id @default(autoincrement())
+  slug      String     @unique
+  name      String
+  sortOrder Int        @default(0)
+  items     MenuItem[]
+}
+
 model MenuItem {
-  id          Int     @id @default(autoincrement())
+  id          Int          @id @default(autoincrement())
   name        String
-  description String  @default("")
+  description String       @default("")
   price       Float
   category    String
-  available   Boolean @default(true)
+  categoryRef Category     @relation(fields: [category], references: [slug], onUpdate: Cascade, onDelete: Restrict)
+  available   Boolean      @default(true)
   imageUrl    String?
+  recipe      RecipeItem[]
+
+  @@index([category])
+}
+
+// Ingredients consumed per unit of a menu item; deducted from stock when ordered.
+model RecipeItem {
+  menuItemId  Int
+  menuItem    MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  stockItemId Int
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  quantity    Float
+
+  @@id([menuItemId, stockItemId])
 }
 
 model Table {
@@ -31,19 +70,43 @@ model Table {
   orders Order[]
 }
 
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?  @unique
+  email     String   @default("")
+  notes     String   @default("")
+  createdAt DateTime @default(now())
+  orders    Order[]
+}
+
 model Order {
   id            String      @id @default(uuid())
-  tableId       String
-  table         Table       @relation(fields: [tableId], references: [id])
-  tableNumber   Int
+  billNo        Int         @unique @default(autoincrement())
+  type          String      @default("dine_in") // dine_in | takeaway
+  source        String      @default("qr") // qr | pos
+  tableId       String?
+  table         Table?      @relation(fields: [tableId], references: [id])
+  tableNumber   Int?
+  customerId    String?
+  customer      Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
   items         OrderItem[]
   customerNote  String      @default("")
-  status        String      @default("pending")
-  paymentStatus String      @default("unpaid")
-  paymentMethod String?
+  status        String      @default("pending") // pending | cooking | serving | completed | cancelled
+  paymentStatus String      @default("unpaid") // unpaid | pending_counter | paid
+  paymentMethod String? // cash | card | esewa | khalti | counter
+  subtotal      Float       @default(0)
+  discount      Float       @default(0)
+  serviceCharge Float       @default(0)
+  tax           Float       @default(0)
   totalAmount   Float
+  paidAt        DateTime?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([customerId])
 }
 
 model OrderItem {
@@ -52,7 +115,73 @@ model OrderItem {
   order      Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menuItemId String
   name       String
+  category   String @default("")
   price      Float
   quantity   Int
   subtotal   Float
+
+  @@index([orderId])
+}
+
+model Supplier {
+  id        String     @id @default(uuid())
+  name      String
+  phone     String     @default("")
+  email     String     @default("")
+  address   String     @default("")
+  createdAt DateTime   @default(now())
+  purchases Purchase[]
+}
+
+model StockItem {
+  id           Int             @id @default(autoincrement())
+  name         String          @unique
+  unit         String // kg, pcs, L …
+  quantity     Float           @default(0)
+  reorderLevel Float           @default(0)
+  costPerUnit  Float           @default(0)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  movements    StockMovement[]
+  recipes      RecipeItem[]
+  purchases    PurchaseItem[]
+}
+
+model StockMovement {
+  id          String    @id @default(uuid())
+  stockItemId Int
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  change      Float
+  reason      String // purchase | sale | cancel | adjustment | wastage | purchase_void
+  note        String    @default("")
+  refId       String?
+  createdAt   DateTime  @default(now())
+
+  @@index([stockItemId, createdAt])
+}
+
+model Purchase {
+  id            String         @id @default(uuid())
+  supplierId    String?
+  supplier      Supplier?      @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  invoiceNo     String         @default("")
+  date          DateTime       @default(now())
+  notes         String         @default("")
+  paymentStatus String         @default("paid") // paid | unpaid
+  totalAmount   Float
+  createdAt     DateTime       @default(now())
+  items         PurchaseItem[]
+
+  @@index([date])
+}
+
+model PurchaseItem {
+  id          String    @id @default(uuid())
+  purchaseId  String
+  purchase    Purchase  @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  stockItemId Int
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id], onDelete: Restrict)
+  quantity    Float
+  unitCost    Float
+  subtotal    Float
 }

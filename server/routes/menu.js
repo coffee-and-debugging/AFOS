@@ -1,94 +1,120 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const prisma = require('../prisma');
-const { requireAuth } = require('../middleware/auth');
+const { uploadsDir } = require('../lib/config');
+const { requireAuth, ROLES } = require('../middleware/auth');
+const { HttpError, asyncHandler } = require('../lib/http');
 
 const router = express.Router();
-
-// Multer setup for image uploads
-const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-    const rawName = (req.body && req.body.itemName) ? req.body.itemName : 'item';
-    const safeName = rawName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    cb(null, `menu-${safeName}${ext}`);
+    const rawName = req.body?.itemName || 'item';
+    const safeName = rawName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'item';
+    cb(null, `menu-${safeName}-${Date.now().toString(36)}${ext}`);
   },
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Only image files are allowed'));
+    else cb(new HttpError(400, 'Only image files are allowed'));
   },
 });
 
-// Upload image → returns { imageUrl }
+function parsePrice(value) {
+  const price = Number(value);
+  if (!Number.isFinite(price) || price < 0) throw new HttpError(400, 'Price must be a positive number');
+  return price;
+}
+
+function parseId(value) {
+  const id = Number.parseInt(value, 10);
+  if (!Number.isInteger(id)) throw new HttpError(400, 'Invalid menu item id');
+  return id;
+}
+
 router.post('/upload', requireAuth(['admin']), upload.single('image'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  if (!req.file) throw new HttpError(400, 'No file uploaded');
   res.json({ imageUrl: `/uploads/${req.file.filename}` });
 });
 
-router.get('/', async (req, res) => {
-  try {
-    const items = await prisma.menuItem.findMany({ orderBy: { category: 'asc' } });
-    res.json(items);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch menu' });
-  }
-});
+router.get('/', asyncHandler(async (req, res) => {
+  res.json(await prisma.menuItem.findMany({ orderBy: [{ categoryRef: { sortOrder: 'asc' } }, { name: 'asc' }] }));
+}));
 
-router.post('/', requireAuth(['admin']), async (req, res) => {
-  const { name, description, price, category, imageUrl } = req.body;
-  if (!name || !price || !category) {
-    return res.status(400).json({ error: 'name, price and category are required' });
+router.post('/', requireAuth(['admin']), asyncHandler(async (req, res) => {
+  const { name, description, price, category, imageUrl } = req.body || {};
+  if (!name || price === undefined || !category) {
+    throw new HttpError(400, 'Name, price and category are required');
   }
-  try {
-    const item = await prisma.menuItem.create({
-      data: { name, description: description || '', price: parseFloat(price), category, available: true, imageUrl: imageUrl || null },
-    });
-    res.status(201).json(item);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to create item' });
-  }
-});
+  const item = await prisma.menuItem.create({
+    data: {
+      name: String(name).trim(),
+      description: description || '',
+      price: parsePrice(price),
+      category,
+      available: true,
+      imageUrl: imageUrl || null,
+    },
+  });
+  res.status(201).json(item);
+}));
 
-router.put('/:id', requireAuth(['admin']), async (req, res) => {
-  const { name, description, price, category, available, imageUrl } = req.body;
-  try {
-    const item = await prisma.menuItem.update({
-      where: { id: parseInt(req.params.id) },
-      data: {
-        ...(name !== undefined && { name }),
-        ...(description !== undefined && { description }),
-        ...(price !== undefined && { price: parseFloat(price) }),
-        ...(category !== undefined && { category }),
-        ...(available !== undefined && { available: Boolean(available) }),
-        ...(imageUrl !== undefined && { imageUrl: imageUrl || null }),
-      },
-    });
-    res.json(item);
-  } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ error: 'Item not found' });
-    res.status(500).json({ error: 'Failed to update item' });
-  }
-});
+router.put('/:id', requireAuth(['admin']), asyncHandler(async (req, res) => {
+  const { name, description, price, category, available, imageUrl } = req.body || {};
+  const item = await prisma.menuItem.update({
+    where: { id: parseId(req.params.id) },
+    data: {
+      ...(name !== undefined && { name: String(name).trim() }),
+      ...(description !== undefined && { description }),
+      ...(price !== undefined && { price: parsePrice(price) }),
+      ...(category !== undefined && { category }),
+      ...(available !== undefined && { available: Boolean(available) }),
+      ...(imageUrl !== undefined && { imageUrl: imageUrl || null }),
+    },
+  });
+  res.json(item);
+}));
 
-router.delete('/:id', requireAuth(['admin']), async (req, res) => {
-  try {
-    await prisma.menuItem.delete({ where: { id: parseInt(req.params.id) } });
-    res.json({ success: true });
-  } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ error: 'Item not found' });
-    res.status(500).json({ error: 'Failed to delete item' });
-  }
-});
+router.delete('/:id', requireAuth(['admin']), asyncHandler(async (req, res) => {
+  await prisma.menuItem.delete({ where: { id: parseId(req.params.id) } });
+  res.json({ success: true });
+}));
+
+// Ingredients used per unit sold; drives automatic stock deduction.
+router.get('/:id/recipe', requireAuth(ROLES.STAFF), asyncHandler(async (req, res) => {
+  res.json(await prisma.recipeItem.findMany({
+    where: { menuItemId: parseId(req.params.id) },
+    include: { stockItem: { select: { name: true, unit: true } } },
+  }));
+}));
+
+router.put('/:id/recipe', requireAuth(ROLES.ADMIN), asyncHandler(async (req, res) => {
+  const menuItemId = parseId(req.params.id);
+  const rows = Array.isArray(req.body) ? req.body : [];
+  const data = rows.map((r) => {
+    const stockItemId = Number(r.stockItemId);
+    const quantity = Number(r.quantity);
+    if (!Number.isInteger(stockItemId)) throw new HttpError(400, 'Choose a stock item for every ingredient');
+    if (!(quantity > 0)) throw new HttpError(400, 'Ingredient quantities must be greater than zero');
+    return { menuItemId, stockItemId, quantity };
+  });
+  if (new Set(data.map((d) => d.stockItemId)).size !== data.length) throw new HttpError(400, 'Each ingredient can appear only once');
+
+  await prisma.$transaction([
+    prisma.recipeItem.deleteMany({ where: { menuItemId } }),
+    prisma.recipeItem.createMany({ data }),
+  ]);
+  res.json(await prisma.recipeItem.findMany({
+    where: { menuItemId },
+    include: { stockItem: { select: { name: true, unit: true } } },
+  }));
+}));
 
 module.exports = router;

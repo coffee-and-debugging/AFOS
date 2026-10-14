@@ -1,80 +1,80 @@
+import { lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { getAuthUser } from './api/client';
-import Login from './pages/admin/Login';
-import AdminDashboard from './pages/admin/Dashboard';
-import MenuManagement from './pages/admin/MenuManagement';
-import TablesManagement from './pages/admin/TablesManagement';
-import ChefDashboard from './pages/chef/ChefDashboard';
+import Providers from './components/Providers';
+import AppShell from './components/AppShell';
+import { LoadingState } from './components/States';
+import RequireFeature from './components/RequireFeature';
+import type { Role } from './types';
+import Login from './pages/Login';
 import CustomerPage from './pages/customer/CustomerPage';
 import OrderStatus from './pages/customer/OrderStatus';
 
-function ProtectedRoute({
-  children,
-  allowedRoles,
-}: {
-  children: React.ReactNode;
-  allowedRoles: string[];
-}) {
+// Staff pages load on demand, so guests' phones only download the ordering screens.
+const Dashboard = lazy(() => import('./pages/admin/Dashboard'));
+const MenuManagement = lazy(() => import('./pages/admin/MenuManagement'));
+const TablesManagement = lazy(() => import('./pages/admin/TablesManagement'));
+const Pos = lazy(() => import('./pages/pos/Pos'));
+const Purchases = lazy(() => import('./pages/purchases/Purchases'));
+const Stock = lazy(() => import('./pages/stock/Stock'));
+const Customers = lazy(() => import('./pages/customers/Customers'));
+const Orders = lazy(() => import('./pages/admin/Orders'));
+const KitchenDisplay = lazy(() => import('./pages/kitchen/KitchenDisplay'));
+const Reports = lazy(() => import('./pages/reports/Reports'));
+const Settings = lazy(() => import('./pages/admin/Settings'));
+
+const HOME: Record<Role, string> = { admin: '/dashboard', cashier: '/pos', chef: '/kitchen' };
+
+function Staff({ roles, children }: { roles: Role[]; children: ReactNode }) {
   const user = getAuthUser();
   if (!user) return <Navigate to="/login" replace />;
-  if (!allowedRoles.includes(user.role)) return <Navigate to="/login" replace />;
-  return <>{children}</>;
+  if (!roles.includes(user.role)) return <Navigate to={HOME[user.role]} replace />;
+  return (
+    <AppShell>
+      <Suspense fallback={<LoadingState />}>{children}</Suspense>
+    </AppShell>
+  );
 }
 
 function RootRedirect() {
   const user = getAuthUser();
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.role === 'admin') return <Navigate to="/admin" replace />;
-  if (user.role === 'chef') return <Navigate to="/chef" replace />;
-  return <Navigate to="/login" replace />;
+  return <Navigate to={user ? HOME[user.role] : '/login'} replace />;
 }
+
+const ADMIN: Role[] = ['admin'];
+const FRONT: Role[] = ['admin', 'cashier'];
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+    <Providers>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
 
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/menu"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <MenuManagement />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/tables"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <TablesManagement />
-            </ProtectedRoute>
-          }
-        />
+          <Route path="/dashboard" element={<Staff roles={FRONT}><Dashboard /></Staff>} />
+          <Route path="/menu" element={<Staff roles={ADMIN}><MenuManagement /></Staff>} />
+          <Route path="/tables" element={<Staff roles={FRONT}><TablesManagement /></Staff>} />
+          <Route path="/pos" element={<Staff roles={FRONT}><Pos /></Staff>} />
+          <Route path="/purchases" element={<Staff roles={ADMIN}><Purchases /></Staff>} />
+          <Route path="/stock" element={<Staff roles={['admin', 'chef']}><Stock /></Staff>} />
+          <Route path="/customers" element={<Staff roles={FRONT}><RequireFeature feature="customers"><Customers /></RequireFeature></Staff>} />
+          <Route path="/customer" element={<Navigate to="/customers" replace />} />
+          <Route path="/orders" element={<Staff roles={FRONT}><Orders /></Staff>} />
+          <Route path="/kitchen" element={<Staff roles={['admin', 'cashier', 'chef']}><KitchenDisplay /></Staff>} />
+          <Route path="/reports" element={<Staff roles={ADMIN}><Reports /></Staff>} />
+          <Route path="/settings" element={<Staff roles={ADMIN}><Settings /></Staff>} />
 
-        <Route
-          path="/chef"
-          element={
-            <ProtectedRoute allowedRoles={['chef']}>
-              <ChefDashboard />
-            </ProtectedRoute>
-          }
-        />
+          {/* Older links */}
+          <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/admin/:page" element={<RootRedirect />} />
+          <Route path="/chef" element={<Navigate to="/kitchen" replace />} />
 
-        <Route path="/table/:tableId" element={<CustomerPage />} />
-        <Route path="/order/:orderId" element={<OrderStatus />} />
+          <Route path="/table/:tableId" element={<CustomerPage />} />
+          <Route path="/order/:orderId" element={<OrderStatus />} />
 
-        <Route path="/" element={<RootRedirect />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="*" element={<RootRedirect />} />
+        </Routes>
+      </BrowserRouter>
+    </Providers>
   );
 }

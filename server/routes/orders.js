@@ -1,160 +1,146 @@
 const express = require('express');
 const prisma = require('../prisma');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireFeature, ROLES } = require('../middleware/auth');
+const { HttpError, asyncHandler } = require('../lib/http');
+const { orderInclude, getSettings, computeTotals, applyRecipeStock, createOrder } = require('../lib/orders');
 
 const router = express.Router();
 
-// Serialize a Prisma order (with items) to the API shape the frontend expects
-function serializeOrder(order) {
-  return {
-    ...order,
-    createdAt: order.createdAt.toISOString(),
-    updatedAt: order.updatedAt.toISOString(),
-  };
+const STATUSES = ['pending', 'cooking', 'serving', 'completed', 'cancelled'];
+const GUEST_METHODS = ['esewa', 'khalti', 'counter'];
+const STAFF_METHODS = ['cash', 'card', 'esewa', 'khalti'];
+
+function parseDate(value, name) {
+  if (!value) return undefined;
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) throw new HttpError(400, `${name} is not a valid date`);
+  return d;
 }
 
-// Get all orders — admin or chef only
-router.get('/', requireAuth(['admin', 'chef']), async (req, res) => {
-  const { tableId, status } = req.query;
-  try {
-    const orders = await prisma.order.findMany({
-      where: {
-        ...(tableId && { tableId }),
-        ...(status && { status }),
-      },
-      include: { items: true },
-      orderBy: { createdAt: 'desc' },
+// List orders — staff. Filters: from, to, status, type, tableId, customerId, unpaid, limit
+router.get('/', requireAuth(ROLES.STAFF), asyncHandler(async (req, res) => {
+  const { status, type, tableId, customerId, unpaid } = req.query;
+  const from = parseDate(req.query.from, 'from');
+  const to = parseDate(req.query.to, 'to');
+  const limit = Math.min(Number.parseInt(req.query.limit, 10) || 500, 2000);
+
+  const orders = await prisma.order.findMany({
+    where: {
+      ...((from || to) && { createdAt: { ...(from && { gte: from }), ...(to && { lt: to }) } }),
+      ...(status && { status: String(status) }),
+      ...(type && { type: String(type) }),
+      ...(tableId && { tableId: String(tableId) }),
+      ...(customerId && { customerId: String(customerId) }),
+      ...(unpaid === 'true' && { paymentStatus: { not: 'paid' }, status: { not: 'cancelled' } }),
+    },
+    include: orderInclude,
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  });
+  res.json(orders);
+}));
+
+// Single order — public so guests can track by the unguessable id. Customer details stay private.
+router.get('/:id', asyncHandler(async (req, res) => {
+  const order = await prisma.order.findUnique({ where: { id: req.params.id }, include: { items: true } });
+  if (!order) throw new HttpError(404, 'Order not found');
+  res.json(order);
+}));
+
+// Guest order from a table QR code
+router.post('/', asyncHandler(async (req, res) => {
+  const { tableId, items, customerNote } = req.body || {};
+  if (!tableId) throw new HttpError(400, 'Table is required');
+  const order = await prisma.$transaction((tx) =>
+    createOrder(tx, { items, type: 'dine_in', source: 'qr', tableId, customerNote }));
+  res.status(201).json(order);
+}));
+
+// Staff order from the POS; optionally paid immediately
+// Attaching a customer to an order is part of the premium Customers feature
+const customerFeature = (req, res, next) => (req.body?.customerId ? requireFeature('customers')(req, res, next) : next());
+
+router.post('/pos', requireAuth(ROLES.FRONT), customerFeature, asyncHandler(async (req, res) => {
+  const { items, type, tableId, customerId, customerNote, discount, payWith } = req.body || {};
+  if (payWith && !STAFF_METHODS.includes(payWith)) throw new HttpError(400, 'Unknown payment method');
+
+  const order = await prisma.$transaction(async (tx) => {
+    const created = await createOrder(tx, { items, type, source: 'pos', tableId, customerId, customerNote, discount });
+    if (!payWith) return created;
+    return tx.order.update({
+      where: { id: created.id },
+      data: { paymentStatus: 'paid', paymentMethod: payWith, paidAt: new Date() },
+      include: orderInclude,
     });
-    res.json(orders.map(serializeOrder));
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch orders' });
-  }
-});
+  });
+  res.status(201).json(order);
+}));
 
-// Get single order — public (customers track by ID)
-router.get('/:id', async (req, res) => {
-  try {
-    const order = await prisma.order.findUnique({
-      where: { id: req.params.id },
-      include: { items: true },
-    });
-    if (!order) return res.status(404).json({ error: 'Order not found' });
-    res.json(serializeOrder(order));
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch order' });
-  }
-});
+router.put('/:id/status', requireAuth(ROLES.STAFF), asyncHandler(async (req, res) => {
+  const { status } = req.body || {};
+  if (!STATUSES.includes(status)) throw new HttpError(400, `Status must be one of: ${STATUSES.join(', ')}`);
 
-// Create order — public (customer at a table)
-router.post('/', async (req, res) => {
-  const { tableId, items, customerNote } = req.body;
-  if (!tableId || !items || !items.length) {
-    return res.status(400).json({ error: 'tableId and items are required' });
-  }
+  const order = await prisma.$transaction(async (tx) => {
+    const existing = await tx.order.findUnique({ where: { id: req.params.id }, include: { items: true } });
+    if (!existing) throw new HttpError(404, 'Order not found');
+    if (existing.status === 'cancelled') throw new HttpError(409, 'This order was cancelled');
 
-  try {
-    const table = await prisma.table.findUnique({ where: { id: tableId } });
-    if (!table) return res.status(404).json({ error: 'Table not found' });
-
-    const menuItemIds = items.map((i) => parseInt(i.menuItemId));
-    const menuItems = await prisma.menuItem.findMany({ where: { id: { in: menuItemIds } } });
-
-    const orderItemsData = [];
-    for (const item of items) {
-      const menuItem = menuItems.find((m) => m.id === parseInt(item.menuItemId));
-      if (!menuItem) return res.status(400).json({ error: `Menu item ${item.menuItemId} not found` });
-      if (!menuItem.available) return res.status(400).json({ error: `${menuItem.name} is not available` });
-      orderItemsData.push({
-        menuItemId: String(menuItem.id),
-        name: menuItem.name,
-        price: menuItem.price,
-        quantity: item.quantity,
-        subtotal: menuItem.price * item.quantity,
-      });
+    if (status === 'cancelled') {
+      if (req.user.role === 'chef') throw new HttpError(403, 'Only the front desk can cancel orders');
+      if (existing.paymentStatus === 'paid') throw new HttpError(409, 'Paid orders cannot be cancelled');
+      await applyRecipeStock(tx, existing.items, 1, 'cancel', existing.id);
     }
+    return tx.order.update({ where: { id: existing.id }, data: { status }, include: orderInclude });
+  });
+  res.json(order);
+}));
 
-    const totalAmount = orderItemsData.reduce((s, i) => s + i.subtotal, 0);
+// Attach or detach a customer — front desk
+router.patch('/:id/customer', requireAuth(ROLES.FRONT), requireFeature('customers'), asyncHandler(async (req, res) => {
+  const customerId = req.body?.customerId || null;
+  const order = await prisma.order.update({ where: { id: req.params.id }, data: { customerId }, include: orderInclude });
+  res.json(order);
+}));
 
-    const order = await prisma.order.create({
-      data: {
-        tableId,
-        tableNumber: table.number,
-        customerNote: customerNote || '',
-        totalAmount,
-        items: { create: orderItemsData },
-      },
-      include: { items: true },
-    });
-    res.status(201).json(serializeOrder(order));
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to create order' });
-  }
-});
+// Guest payment from the order status page (demo gateways or "pay at counter")
+router.post('/:id/payment', asyncHandler(async (req, res) => {
+  const { method } = req.body || {};
+  if (!GUEST_METHODS.includes(method)) throw new HttpError(400, 'Choose eSewa, Khalti or counter');
 
-// Update order status — admin or chef
-router.put('/:id/status', requireAuth(['admin', 'chef']), async (req, res) => {
-  const { status } = req.body;
-  const valid = ['pending', 'cooking', 'serving', 'completed'];
-  if (!valid.includes(status)) {
-    return res.status(400).json({ error: `Status must be one of: ${valid.join(', ')}` });
-  }
-  try {
-    const order = await prisma.order.update({
-      where: { id: req.params.id },
-      data: { status },
-      include: { items: true },
-    });
-    res.json(serializeOrder(order));
-  } catch (err) {
-    if (err.code === 'P2025') return res.status(404).json({ error: 'Order not found' });
-    res.status(500).json({ error: 'Failed to update order status' });
-  }
-});
+  const existing = await prisma.order.findUnique({ where: { id: req.params.id } });
+  if (!existing) throw new HttpError(404, 'Order not found');
+  if (existing.paymentStatus === 'paid') throw new HttpError(400, 'This order is already paid');
+  if (existing.status === 'cancelled') throw new HttpError(409, 'This order was cancelled');
 
-// Process payment — public (customer pays: esewa / khalti / counter)
-router.post('/:id/payment', async (req, res) => {
-  const { method } = req.body;
-  if (!['esewa', 'khalti', 'counter'].includes(method)) {
-    return res.status(400).json({ error: 'method must be esewa, khalti, or counter' });
-  }
-  try {
-    const existing = await prisma.order.findUnique({ where: { id: req.params.id } });
-    if (!existing) return res.status(404).json({ error: 'Order not found' });
-    if (existing.paymentStatus === 'paid') return res.status(400).json({ error: 'Order already paid' });
+  const paid = method !== 'counter';
+  const order = await prisma.order.update({
+    where: { id: existing.id },
+    data: { paymentMethod: method, paymentStatus: paid ? 'paid' : 'pending_counter', paidAt: paid ? new Date() : null },
+    include: { items: true },
+  });
+  res.json(order);
+}));
 
-    const order = await prisma.order.update({
-      where: { id: req.params.id },
-      data: {
-        paymentMethod: method,
-        paymentStatus: method === 'counter' ? 'pending_counter' : 'paid',
-      },
-      include: { items: true },
-    });
-    res.json(serializeOrder(order));
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to process payment' });
-  }
-});
+// Settle a bill at the counter — front desk. Optional discount is applied before charging.
+router.post('/:id/pay', requireAuth(ROLES.FRONT), asyncHandler(async (req, res) => {
+  const { method, discount } = req.body || {};
+  if (!STAFF_METHODS.includes(method)) throw new HttpError(400, 'Choose cash, card, eSewa or Khalti');
 
-// Confirm counter payment — admin only
-router.post('/:id/confirm-payment', requireAuth(['admin']), async (req, res) => {
-  try {
-    const existing = await prisma.order.findUnique({ where: { id: req.params.id } });
-    if (!existing) return res.status(404).json({ error: 'Order not found' });
-    if (existing.paymentStatus === 'paid') return res.status(400).json({ error: 'Order is already paid' });
+  const existing = await prisma.order.findUnique({ where: { id: req.params.id } });
+  if (!existing) throw new HttpError(404, 'Order not found');
+  if (existing.paymentStatus === 'paid') throw new HttpError(400, 'This order is already paid');
+  if (existing.status === 'cancelled') throw new HttpError(409, 'This order was cancelled');
 
-    const order = await prisma.order.update({
-      where: { id: req.params.id },
-      data: {
-        paymentStatus: 'paid',
-        paymentMethod: existing.paymentMethod || 'counter',
-      },
-      include: { items: true },
-    });
-    res.json(serializeOrder(order));
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to confirm payment' });
-  }
-});
+  const totals = discount === undefined
+    ? {}
+    : computeTotals(existing.subtotal, discount, existing.type, await getSettings(prisma));
+
+  const order = await prisma.order.update({
+    where: { id: existing.id },
+    data: { ...totals, paymentStatus: 'paid', paymentMethod: method, paidAt: new Date() },
+    include: orderInclude,
+  });
+  res.json(order);
+}));
 
 module.exports = router;

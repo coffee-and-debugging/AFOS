@@ -1,0 +1,96 @@
+/*
+ * Design tokens — the single source for color, type, spacing and motion.
+ * Look: hot food-poster energy (deep crimson, flame orange, amber highlights,
+ * bold condensed headlines, a brush-script accent) on calm, readable work surfaces.
+ */
+:root {
+  /* Brand */
+  --color-primary: #c1121f;
+  --color-primary-hover: #9b0d18;
+  --color-primary-soft: #fde2e1;
+  --color-primary-tint: #fff4f2;
+  --color-accent: #ffb703;
+  --color-accent-hover: #f5a400;
+  --color-accent-strong: #fb8500;
+  --color-accent-soft: #fff3cc;
+  --color-ink: #370617;
+  --color-ink-2: #6a040f;
+
+  /* Poster surfaces */
+  --gradient-poster:
+    radial-gradient(circle at 78% 18%, rgba(255, 183, 3, 0.32), transparent 42%),
+    radial-gradient(circle at 8% 115%, rgba(251, 133, 0, 0.5), transparent 48%),
+    linear-gradient(135deg, #9d0208 0%, #6a040f 55%, #370617 100%);
+  --gradient-sidebar:
+    radial-gradient(circle at 20% 0%, rgba(251, 133, 0, 0.28), transparent 38%),
+    linear-gradient(180deg, #7a0b12 0%, #4a060c 55%, #2b0407 100%);
+  --gradient-flame: linear-gradient(135deg, #fb8500 0%, #e85d04 45%, #c1121f 100%);
+
+  /* Neutrals (warm) */
+  --color-bg: #fbf7f3;
+  --color-surface: #ffffff;
+  --color-surface-muted: #fdf8f4;
+  --color-border: #f1e4d8;
+  --color-border-strong: #e3cfbd;
+  --color-text: #22110f;
+  --color-text-muted: #6f5a52;
+  --color-text-subtle: #a3918a;
+  --color-on-dark: rgba(255, 255, 255, 0.82);
+  --color-on-dark-muted: rgba(255, 255, 255, 0.55);
+
+  /* Status */
+  --color-warning: #8a5300;
+  --color-warning-bg: #fff1cc;
+  --color-info: #0b5a73;
+  --color-info-bg: #d9f2fa;
+  --color-success: #17643a;
+  --color-success-bg: #dcf3e4;
+  --color-danger: #c1121f;
+  --color-danger-text: #8f0e18;
+  --color-danger-bg: #fde2e1;
+  --color-neutral: #5c4a44;
+  --color-neutral-bg: #f1e9e3;
+
+  /* Type: bold condensed headlines, humanist body, brush script for accents */
+  --font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --font-body: 'Barlow', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --font-script: 'Kaushan Script', 'Brush Script MT', cursive;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.375rem;
+  --text-xl: 1.875rem;
+  --text-2xl: 2.5rem;
+  --text-3xl: 3.25rem;
+  --leading-tight: 1.1;
+  --leading-normal: 1.5;
+
+  /* Spacing (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Shape & depth */
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(55, 6, 23, 0.06);
+  --shadow: 0 4px 14px rgba(55, 6, 23, 0.07);
+  --shadow-lg: 0 18px 40px rgba(55, 6, 23, 0.22);
+  --focus-ring: 0 0 0 3px rgba(255, 183, 3, 0.55);
+
+  /* Motion */
+  --ease: 160ms ease;
+
+  /* Layout */
+  --sidebar-width: 256px;
+  --topbar-height: 64px;
+  --content-max: 1320px;
+}

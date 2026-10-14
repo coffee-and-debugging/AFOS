@@ -1,74 +1,51 @@
-const { PrismaClient } = require('@prisma/client');
+// Idempotent seed: safe to run on every deploy. Existing rows are never duplicated
+// or overwritten, so changes made in the admin panel survive re-seeding.
+const config = require('../lib/config');
 const bcrypt = require('bcrypt');
+const prisma = require('../prisma');
+const logger = require('../lib/logger');
+const { RESTAURANT, addDemoData } = require('./demo-data');
 
-const prisma = new PrismaClient();
+const TABLE_COUNT = 8;
+
+function seedPassword(envName, devDefault) {
+  const value = process.env[envName];
+  if (value) return value;
+  if (config.isProd) {
+    throw new Error(`${envName} must be set when seeding in production (refusing to create a default password)`);
+  }
+  return devDefault;
+}
 
 async function main() {
-  // Users
-  await prisma.user.upsert({
-    where: { username: 'admin' },
-    update: {},
-    create: {
-      id: '1',
-      username: 'admin',
-      password: await bcrypt.hash('admin123', 10),
-      role: 'admin',
-      name: 'Admin',
-    },
-  });
-
-  await prisma.user.upsert({
-    where: { username: 'chef' },
-    update: {},
-    create: {
-      id: '2',
-      username: 'chef',
-      password: await bcrypt.hash('chef123', 10),
-      role: 'chef',
-      name: 'Chef',
-    },
-  });
-
-  // Menu items — only seed if empty (ids are auto-assigned sequentially)
-  const count = await prisma.menuItem.count();
-  if (count === 0) {
-    await prisma.menuItem.createMany({
-      data: [
-        { name: 'Green Tea',    description: 'Refreshing Japanese green tea',  price: 150, category: 'tea',  available: true },
-        { name: 'Oolong Tea',   description: 'Premium semi-oxidized oolong',   price: 200, category: 'tea',  available: true },
-        { name: 'Matcha Latte', description: 'Smooth matcha with steamed milk',price: 280, category: 'tea',  available: true },
-        { name: 'Earl Grey',    description: 'Classic bergamot black tea',     price: 150, category: 'tea',  available: true },
-        { name: 'Chamomile',    description: 'Soothing herbal chamomile',      price: 150, category: 'tea',  available: true },
-        { name: 'Egg Tart',     description: 'Freshly baked silky egg tart',   price: 120, category: 'food', available: true },
-        { name: 'Scone',        description: 'Buttery scone with jam & cream', price: 180, category: 'food', available: true },
-        { name: 'Tea Sandwich', description: 'Assorted finger sandwiches',     price: 250, category: 'food', available: true },
-        { name: 'Almond Cake',  description: 'Light almond sponge cake slice', price: 220, category: 'food', available: true },
-      ],
-    });
-    console.log('Menu items seeded (ids 1-9).');
-  } else {
-    console.log(`Menu items already exist (${count} items), skipping seed.`);
-  }
-
-  // Tables
-  const tables = [
-    { id: 'table-1', number: 1 },
-    { id: 'table-2', number: 2 },
-    { id: 'table-3', number: 3 },
-    { id: 'table-4', number: 4 },
+  const users = [
+    { id: '1', username: 'admin', role: 'admin', name: 'Admin', password: seedPassword('SEED_ADMIN_PASSWORD', 'admin123') },
+    { id: '2', username: 'chef', role: 'chef', name: 'Chef', password: seedPassword('SEED_CHEF_PASSWORD', 'chef123') },
+    { id: '3', username: 'cashier', role: 'cashier', name: 'Cashier', password: seedPassword('SEED_CASHIER_PASSWORD', 'cashier123') },
   ];
-
-  for (const table of tables) {
-    await prisma.table.upsert({
-      where: { id: table.id },
-      update: {},
-      create: table,
-    });
+  for (const { password, ...user } of users) {
+    if (await prisma.user.findUnique({ where: { username: user.username } })) continue;
+    await prisma.user.create({ data: { ...user, password: await bcrypt.hash(password, 10) } });
   }
 
-  console.log('Seed complete.');
+  await prisma.restaurant.upsert({ where: { id: RESTAURANT.id }, update: {}, create: RESTAURANT });
+
+  // A brand-new install gets the demo restaurant; an existing menu is never touched.
+  const freshInstall = (await prisma.menuItem.count()) === 0;
+  if (freshInstall) await addDemoData(prisma);
+
+  if ((await prisma.table.count()) === 0) {
+    for (let number = 1; number <= TABLE_COUNT; number++) {
+      await prisma.table.create({ data: { id: `table-${number}`, number } });
+    }
+  }
+
+  logger.info('seed complete', { demoDataAdded: freshInstall });
 }
 
 main()
-  .catch((e) => { console.error(e); process.exit(1); })
+  .catch((err) => {
+    logger.fatal('seed failed', { err });
+    process.exitCode = 1;
+  })
   .finally(() => prisma.$disconnect());
