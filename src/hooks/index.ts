@@ -1,5 +1,8 @@
-import { useCallback, useContext, useEffect, useState, useSyncExternalStore } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { connectivityStore } from '../api/client';
+import { liveEvents, type LiveEventName } from '../api/events';
+import { soundStore } from '../lib/sound';
+import type { LiveEvents } from '../types';
 import { RestaurantContext, ToastContext } from '../lib/contexts';
 import { formatMoney } from '../lib/format';
 import { hasFeature, type Feature } from '../lib/plans';
@@ -90,3 +93,46 @@ export function useNow(intervalMs = 30_000) {
   }, [intervalMs]);
   return now;
 }
+
+/** Runs `handler` for every real-time event of this type while the component is mounted. */
+export function useLiveEvent<K extends LiveEventName>(name: K, handler: (data: LiveEvents[K]) => void) {
+  const latest = useRef(handler);
+  useEffect(() => {
+    latest.current = handler;
+  });
+  useEffect(() => liveEvents.subscribe(name, (data) => latest.current(data)), [name]);
+}
+
+/**
+ * Calls `reload` shortly after any of the given events (debounced, so a burst of orders
+ * causes one refresh) and again whenever the live connection recovers after a drop.
+ */
+export function useLiveReload(reload: () => void, names: LiveEventName[], delayMs = 800) {
+  const latest = useRef(reload);
+  useEffect(() => {
+    latest.current = reload;
+  });
+  const key = names.join(',');
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => latest.current(), delayMs);
+    };
+    const offs = key.split(',').map((n) => liveEvents.subscribe(n as LiveEventName, schedule));
+    let wasLive = liveEvents.getStatus() === 'live';
+    offs.push(liveEvents.onStatus(() => {
+      const live = liveEvents.getStatus() === 'live';
+      if (live && !wasLive) schedule(); // catch up on anything missed while disconnected
+      wasLive = live;
+    }));
+    return () => {
+      clearTimeout(timer);
+      offs.forEach((off) => off());
+    };
+  }, [key, delayMs]);
+}
+
+export const useLiveStatus = () => useSyncExternalStore(liveEvents.onStatus, liveEvents.getStatus);
+
+export const useSound = () => useSyncExternalStore(soundStore.subscribe, soundStore.getSnapshot);

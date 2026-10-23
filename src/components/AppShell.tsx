@@ -1,8 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import Icon, { type IconName } from './Icon';
+import LiveAlerts from './LiveAlerts';
 import { OfflineBanner } from './States';
 import { clearAuth, getAuthUser } from '../api/client';
+import { liveEvents } from '../api/events';
 import { useConnectivity, useFeature, useNow, useRestaurant } from '../hooks';
 import type { Feature } from '../lib/plans';
 import type { Role } from '../types';
@@ -28,6 +30,7 @@ const NAV: NavEntry[] = [
   { to: '/customers', label: 'Customers', icon: 'customers', roles: ['admin', 'cashier'], feature: 'customers' },
   { to: '/orders', label: 'Orders', icon: 'orders', roles: ['admin', 'cashier'], quick: true },
   { to: '/kitchen', label: 'Kitchen', icon: 'kitchen', roles: ALL, quick: true },
+  { to: '/staff', label: 'Staff & Payroll', icon: 'user', roles: ['admin'] },
   { to: '/reports', label: 'Reports', icon: 'reports', roles: ['admin'] },
 ];
 
@@ -49,6 +52,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   function logout() {
     clearAuth();
+    liveEvents.close();
     navigate('/login');
   }
 
@@ -110,6 +114,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             </nav>
           )}
           <div className="topbar-right">
+            {(role === 'admin' || role === 'cashier') && <LiveAlerts />}
             <span className={`conn-chip${connectivity === 'offline' ? ' is-offline' : ''}`}>
               {connectivity === 'online' ? 'Online' : 'Reconnecting'}
             </span>

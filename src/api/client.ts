@@ -1,11 +1,11 @@
 import type {
   AuthUser, Category, Customer, MenuItem, Order, OrderType, PaymentMethod, Purchase, RecipeLine, Report,
-  Restaurant, StaffPaymentMethod, StockItem, StockMovement, Supplier, Table,
+  Restaurant, StaffCategory, StaffMember, StaffPayment, StaffPaymentMethod, StockItem, StockMovement, Supplier, Table,
 } from '../types';
 
 // Empty in development (Vite proxies /api); the API's public origin in production.
 const API_ORIGIN = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
-const API_BASE = `${API_ORIGIN}/api`;
+export const API_BASE = `${API_ORIGIN}/api`;
 const TIMEOUT_MS = 10_000;
 const TOKEN_KEY = 'afos_token';
 const USER_KEY = 'afos_user';
@@ -70,6 +70,8 @@ export function clearAuth() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 }
+
+export const getToken = () => localStorage.getItem(TOKEN_KEY);
 
 export function getAuthUser(): AuthUser | null {
   try {
@@ -243,11 +245,16 @@ export const api = {
 
   stock: {
     list: () => request<StockItem[]>('/stock'),
-    create: (data: Partial<StockItem>) => request<StockItem>('/stock', json('POST', data)),
+    low: () => request<StockItem[]>('/stock/low'),
+    create: (data: Partial<StockItem> & { inPacks?: boolean }) => request<StockItem>('/stock', json('POST', data)),
     update: (id: number, data: Partial<StockItem>) => request<StockItem>(`/stock/${id}`, json('PUT', data)),
     delete: (id: number) => request<{ success: boolean }>(`/stock/${id}`, json('DELETE')),
-    adjust: (id: number, change: number, reason: 'adjustment' | 'wastage', note: string) =>
-      request<StockItem>(`/stock/${id}/adjust`, json('POST', { change, reason, note })),
+    /** `change` is in packs when `inPacks` is true, otherwise in the base unit */
+    adjust: (id: number, change: number, reason: 'adjustment' | 'wastage', note: string, inPacks = false) =>
+      request<StockItem>(`/stock/${id}/adjust`, json('POST', { change, reason, note, inPacks })),
+    /** Re-base onto a smaller unit: 1 old unit = `factor` new units (e.g. pack → 20 pcs) */
+    convert: (id: number, data: { unit: string; factor: number; packUnit?: string }) =>
+      request<StockItem>(`/stock/${id}/convert`, json('POST', data)),
     movements: (id: number) => request<StockMovement[]>(`/stock/${id}/movements`),
   },
 
@@ -259,10 +266,33 @@ export const api = {
       date?: string;
       notes?: string;
       paymentStatus: 'paid' | 'unpaid';
-      items: { stockItemId: number; quantity: number; unitCost: number }[];
+      /** With `inPacks`, quantity and unitCost are per pack */
+      items: { stockItemId: number; quantity: number; unitCost: number; inPacks?: boolean }[];
     }) => request<Purchase>('/purchases', json('POST', data)),
     setPaid: (id: string, paymentStatus: 'paid' | 'unpaid') => request<Purchase>(`/purchases/${id}`, json('PATCH', { paymentStatus })),
     delete: (id: string) => request<{ success: boolean }>(`/purchases/${id}`, json('DELETE')),
+  },
+
+  staff: {
+    list: (period?: string) => request<StaffMember[]>(`/staff${query({ period })}`),
+    create: (data: Partial<StaffMember> & { password?: string }) => request<StaffMember>('/staff', json('POST', data)),
+    update: (id: string, data: Partial<StaffMember> & { password?: string }) => request<StaffMember>(`/staff/${id}`, json('PUT', data)),
+    setActive: (id: string, active: boolean) => request<StaffMember>(`/staff/${id}/active`, json('PATCH', { active })),
+    payments: (id: string) => request<StaffPayment[]>(`/staff/${id}/payments`),
+    allPayments: (params: { period?: string } & Partial<DateRange> = {}) => request<StaffPayment[]>(`/staff/payments${query(params)}`),
+    pay: (id: string, data: Partial<StaffPayment>) => request<StaffPayment>(`/staff/${id}/payments`, json('POST', data)),
+    deletePayment: (paymentId: string) => request<{ success: boolean }>(`/staff/payments/${paymentId}`, json('DELETE')),
+    categories: {
+      list: () => request<StaffCategory[]>('/staff/categories'),
+      create: (data: Pick<StaffCategory, 'name'> & Partial<Pick<StaffCategory, 'color' | 'description'>>) =>
+        request<StaffCategory>('/staff/categories', json('POST', data)),
+      update: (id: number, data: Partial<Pick<StaffCategory, 'name' | 'color' | 'description'>>) =>
+        request<StaffCategory>(`/staff/categories/${id}`, json('PUT', data)),
+      reorder: (ids: number[]) => request<{ success: boolean }>('/staff/categories', json('PUT', ids)),
+      /** People still in the category move to `moveTo` (a category id, or 'none' for uncategorised) */
+      delete: (id: number, moveTo?: number | 'none') =>
+        request<{ success: boolean; moved: number }>(`/staff/categories/${id}${query({ moveTo })}`, json('DELETE')),
+    },
   },
 
   reports: {

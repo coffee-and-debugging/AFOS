@@ -10,6 +10,20 @@ export function formatQty(n: number) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 3 });
 }
 
+/**
+ * Stock quantity in packs plus loose units when the item has a pack size:
+ * 47 pcs with 20 per pack → "2 pack + 7 pcs". Otherwise "47 pcs".
+ */
+export function formatStock(qty: number, item: { unit: string; packUnit?: string | null; unitsPerPack?: number | null }) {
+  const base = `${formatQty(qty)} ${item.unit}`;
+  const size = item.unitsPerPack;
+  if (!item.packUnit || !size || Math.abs(qty) < size) return base;
+  const abs = Math.abs(qty);
+  const packs = Math.floor(abs / size + 1e-9);
+  const loose = Math.round((abs - packs * size) * 1000) / 1000;
+  return `${qty < 0 ? '−' : ''}${packs} ${item.packUnit}${loose ? ` + ${formatQty(loose)} ${item.unit}` : ''}`;
+}
+
 export function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }

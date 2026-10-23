@@ -3,12 +3,21 @@ const prisma = require('../prisma');
 const { requireAuth, requireFeature, ROLES } = require('../middleware/auth');
 const { HttpError, asyncHandler } = require('../lib/http');
 const { orderInclude, getSettings, computeTotals, applyRecipeStock, createOrder } = require('../lib/orders');
+const { notifyLowStock } = require('../lib/stock');
+const events = require('../lib/events');
 
 const router = express.Router();
 
 const STATUSES = ['pending', 'cooking', 'serving', 'completed', 'cancelled'];
 const GUEST_METHODS = ['esewa', 'khalti', 'counter'];
 const STAFF_METHODS = ['cash', 'card', 'esewa', 'khalti'];
+
+/** Pushes a new order to the kitchen and front desk, plus any low-stock alerts it caused. */
+function announceNewOrder({ order, stockAlerts }) {
+  events.publish('order.created', order);
+  notifyLowStock(stockAlerts, { orderId: order.id, billNo: order.billNo });
+  return order;
+}
 
 function parseDate(value, name) {
   if (!value) return undefined;
@@ -51,9 +60,9 @@ router.get('/:id', asyncHandler(async (req, res) => {
 router.post('/', asyncHandler(async (req, res) => {
   const { tableId, items, customerNote } = req.body || {};
   if (!tableId) throw new HttpError(400, 'Table is required');
-  const order = await prisma.$transaction((tx) =>
+  const created = await prisma.$transaction((tx) =>
     createOrder(tx, { items, type: 'dine_in', source: 'qr', tableId, customerNote }));
-  res.status(201).json(order);
+  res.status(201).json(announceNewOrder(created));
 }));
 
 // Staff order from the POS; optionally paid immediately
@@ -64,16 +73,17 @@ router.post('/pos', requireAuth(ROLES.FRONT), customerFeature, asyncHandler(asyn
   const { items, type, tableId, customerId, customerNote, discount, payWith } = req.body || {};
   if (payWith && !STAFF_METHODS.includes(payWith)) throw new HttpError(400, 'Unknown payment method');
 
-  const order = await prisma.$transaction(async (tx) => {
-    const created = await createOrder(tx, { items, type, source: 'pos', tableId, customerId, customerNote, discount });
-    if (!payWith) return created;
-    return tx.order.update({
-      where: { id: created.id },
+  const created = await prisma.$transaction(async (tx) => {
+    const result = await createOrder(tx, { items, type, source: 'pos', tableId, customerId, customerNote, discount });
+    if (!payWith) return result;
+    const order = await tx.order.update({
+      where: { id: result.order.id },
       data: { paymentStatus: 'paid', paymentMethod: payWith, paidAt: new Date() },
       include: orderInclude,
     });
+    return { ...result, order };
   });
-  res.status(201).json(order);
+  res.status(201).json(announceNewOrder(created));
 }));
 
 router.put('/:id/status', requireAuth(ROLES.STAFF), asyncHandler(async (req, res) => {
@@ -92,6 +102,7 @@ router.put('/:id/status', requireAuth(ROLES.STAFF), asyncHandler(async (req, res
     }
     return tx.order.update({ where: { id: existing.id }, data: { status }, include: orderInclude });
   });
+  events.publish('order.updated', order);
   res.json(order);
 }));
 
@@ -99,6 +110,7 @@ router.put('/:id/status', requireAuth(ROLES.STAFF), asyncHandler(async (req, res
 router.patch('/:id/customer', requireAuth(ROLES.FRONT), requireFeature('customers'), asyncHandler(async (req, res) => {
   const customerId = req.body?.customerId || null;
   const order = await prisma.order.update({ where: { id: req.params.id }, data: { customerId }, include: orderInclude });
+  events.publish('order.updated', order);
   res.json(order);
 }));
 
@@ -116,9 +128,11 @@ router.post('/:id/payment', asyncHandler(async (req, res) => {
   const order = await prisma.order.update({
     where: { id: existing.id },
     data: { paymentMethod: method, paymentStatus: paid ? 'paid' : 'pending_counter', paidAt: paid ? new Date() : null },
-    include: { items: true },
+    include: orderInclude,
   });
-  res.json(order);
+  events.publish('order.updated', order);
+  // Guests never see customer details
+  res.json({ ...order, customer: undefined });
 }));
 
 // Settle a bill at the counter — front desk. Optional discount is applied before charging.
@@ -140,6 +154,7 @@ router.post('/:id/pay', requireAuth(ROLES.FRONT), asyncHandler(async (req, res) 
     data: { ...totals, paymentStatus: 'paid', paymentMethod: method, paidAt: new Date() },
     include: orderInclude,
   });
+  events.publish('order.updated', order);
   res.json(order);
 }));
 

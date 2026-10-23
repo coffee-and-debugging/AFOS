@@ -6,14 +6,14 @@ import { PageHeader } from '../../components/AppShell';
 import Icon from '../../components/Icon';
 import Stat from '../../components/Stat';
 import { EmptyState, ErrorState, LoadingState } from '../../components/States';
-import { useAmountMask, usePolling } from '../../hooks';
+import { useAmountMask, useLiveReload, usePolling } from '../../hooks';
 import { presetRange } from '../../lib/dates';
 import { billLabel, formatQty, formatTime, orderPlace, STATUS_LABEL } from '../../lib/format';
 import { CHART } from '../../lib/chart';
 
 function greeting() {
   const h = new Date().getHours();
-  return h < 12 ? 'Good morning' : h < 17 ? 'Hot & busy today' : 'Good evening';
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 }
 
 export default function Dashboard() {
@@ -27,7 +27,9 @@ export default function Dashboard() {
     api.orders.list({ ...presetRange('today'), limit: 300 }),
     api.tables.getAll(),
   ]), []);
-  const { data, error, loading, retry } = usePolling(load, 15_000);
+  const { data, error, loading, retry, reload } = usePolling(load, 60_000);
+  // Sales, kitchen and stock figures refresh the moment something happens
+  useLiveReload(reload, ['order.created', 'order.updated', 'stock.low'], 1500);
 
   if (loading && !data) return <LoadingState label="Loading dashboard…" />;
   if (!data) return <ErrorState error={error} onRetry={retry} />;
@@ -64,7 +66,7 @@ export default function Dashboard() {
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div className="hero-kicker">{greeting()}</div>
           <div className="hero-title">Today's sales</div>
-          <div className="hero-stat-value" style={{ fontSize: 'var(--text-3xl)', marginTop: 'var(--space-3)' }}>{money(t.netSales)}</div>
+          <div className="hero-amount">{money(t.netSales)}</div>
           <p className="hero-sub">
             {t.orders} orders · {t.itemsSold} items sold{t.cancelled ? ` · ${t.cancelled} cancelled` : ''}
           </p>

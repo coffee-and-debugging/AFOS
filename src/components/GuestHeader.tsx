@@ -5,8 +5,8 @@ import { OfflineBanner } from './States';
 import { getAuthUser } from '../api/client';
 import { useRestaurant } from '../hooks';
 
-/** Poster-style hero for guest pages: script kicker, big condensed headline, amber table chip. */
-export default function GuestHeader({ kicker = 'Hot & Delicious', title, chip, action }: {
+/** Header for guest pages: small label, restaurant name, table chip and an optional action. */
+export default function GuestHeader({ kicker = 'Welcome', title, chip, action }: {
   kicker?: string;
   title?: string;
   chip?: string;

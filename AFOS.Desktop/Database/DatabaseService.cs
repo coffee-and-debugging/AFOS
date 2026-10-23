@@ -19,7 +19,9 @@ public class DatabaseService
         await conn.OpenAsync();
 
         await using var cmd = new NpgsqlCommand(
-            "SELECT id, username, password, role, name FROM \"User\" WHERE username = @u", conn);
+            // Deactivated and payroll-only staff ("staff" role, no password) cannot sign in
+            "SELECT id, username, password, role, name FROM \"User\" " +
+            "WHERE username = @u AND active AND password IS NOT NULL AND role IN ('admin', 'cashier', 'chef')", conn);
         cmd.Parameters.AddWithValue("u", username);
 
         await using var rdr = await cmd.ExecuteReaderAsync();

@@ -107,7 +107,11 @@ export interface Supplier {
 export interface StockItem {
   id: number;
   name: string;
+  /** Base unit every quantity is counted in, e.g. "pcs" */
   unit: string;
+  /** Optional bulk unit, e.g. "pack", holding `unitsPerPack` base units */
+  packUnit: string | null;
+  unitsPerPack: number | null;
   quantity: number;
   reorderLevel: number;
   costPerUnit: number;
@@ -162,6 +166,83 @@ export interface Report {
 }
 
 export type Role = 'admin' | 'cashier' | 'chef';
+/** Roles in the staff directory; "staff" is payroll-only and cannot sign in */
+export type StaffRole = Role | 'staff';
+
+export type CategoryColor = 'red' | 'orange' | 'amber' | 'green' | 'blue' | 'purple' | 'gray';
+
+/** Department staff are grouped by; managers can add their own */
+export interface StaffCategory {
+  id: number;
+  name: string;
+  description: string;
+  color: CategoryColor;
+  sortOrder: number;
+  activeStaff: number;
+  salaryBill: number;
+}
+
+type CategoryRef = Pick<StaffCategory, 'id' | 'name' | 'color'>;
+
+export interface StaffMember {
+  id: string;
+  username: string | null;
+  role: StaffRole;
+  name: string;
+  position: string;
+  categoryId: number | null;
+  category: CategoryRef | null;
+  phone: string;
+  active: boolean;
+  baseSalary: number;
+  overtimeRate: number;
+  joinedAt: string;
+  createdAt: string;
+  canLogin: boolean;
+  period: string;
+  paidThisPeriod: number;
+  paymentsThisPeriod: number;
+  lastPayment: { paidAt: string; period: string; netAmount: number } | null;
+}
+
+export type PayrollMethod = 'cash' | 'bank' | 'esewa' | 'khalti';
+
+export interface StaffPayment {
+  id: string;
+  userId: string;
+  user?: { id: string; name: string; role: StaffRole; position: string; category: CategoryRef | null };
+  period: string;
+  baseAmount: number;
+  bonus: number;
+  overtimeHours: number;
+  overtimeRate: number;
+  overtimeAmount: number;
+  deductions: number;
+  netAmount: number;
+  method: PayrollMethod;
+  note: string;
+  paidAt: string;
+  recordedBy: string;
+}
+
+/** Pushed by the API when an item drops to or below its reorder level */
+export interface LowStockAlert {
+  id: number;
+  name: string;
+  unit: string;
+  packUnit: string | null;
+  unitsPerPack: number | null;
+  quantity: number;
+  reorderLevel: number;
+  outOfStock: boolean;
+}
+
+/** Real-time events from GET /api/events */
+export interface LiveEvents {
+  'order.created': Order;
+  'order.updated': Order;
+  'stock.low': { items: LowStockAlert[]; at: string; source: Record<string, unknown> };
+}
 
 export interface AuthUser {
   id: string;

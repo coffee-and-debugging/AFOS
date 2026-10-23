@@ -7,7 +7,7 @@ import Modal from '../../components/Modal';
 import Stat from '../../components/Stat';
 import { EmptyState, ErrorState, LoadingState } from '../../components/States';
 import { usePolling, useRestaurant, useToast } from '../../hooks';
-import { formatDateTime, formatQty } from '../../lib/format';
+import { formatDateTime, formatQty, formatStock } from '../../lib/format';
 import type { StockItem, StockMovement } from '../../types';
 
 const REASON_LABEL: Record<StockMovement['reason'], string> = {
@@ -29,6 +29,7 @@ export default function Stock() {
   const [editing, setEditing] = useState<StockItem | 'new' | null>(null);
   const [adjusting, setAdjusting] = useState<StockItem | null>(null);
   const [history, setHistory] = useState<StockItem | null>(null);
+  const [converting, setConverting] = useState<StockItem | null>(null);
 
   if (loading && !items) return <LoadingState label="Loading stock…" />;
   if (!items) return <ErrorState error={error} onRetry={retry} />;
@@ -53,7 +54,7 @@ export default function Stock() {
       <PageHeader
         icon="stock"
         title="Stock"
-        subtitle="Ingredients on hand. Sales deduct automatically from menu recipes; purchases add to stock."
+        subtitle="Ingredients and retail goods on hand. Sales deduct automatically from menu recipes, down to single loose units; purchases add to stock."
         actions={isAdmin && (
           <>
             <Link to="/purchases" className="btn btn-secondary"><Icon name="purchases" size={16} /> Record purchase</Link>
@@ -87,9 +88,17 @@ export default function Stock() {
                 {visible.map((i) => (
                   <tr key={i.id}>
                     <td><strong>{i.name}</strong> {i.lowStock && <span className="badge badge-low" style={{ marginLeft: 'var(--space-2)' }}>Low</span>}</td>
-                    <td className={`num${i.lowStock ? ' danger-text' : ''}`}>{formatQty(i.quantity)} {i.unit}</td>
-                    <td className="num muted">{formatQty(i.reorderLevel)} {i.unit}</td>
-                    <td className="num">{money(i.costPerUnit)}</td>
+                    <td className={`num${i.lowStock ? ' danger-text' : ''}`}>
+                      {formatStock(i.quantity, i)}
+                      {i.packUnit && i.unitsPerPack && Math.abs(i.quantity) >= i.unitsPerPack && (
+                        <div className="muted cell-sub">{formatQty(i.quantity)} {i.unit} total</div>
+                      )}
+                    </td>
+                    <td className="num muted">{formatStock(i.reorderLevel, i)}</td>
+                    <td className="num">
+                      {money(i.costPerUnit)}
+                      {i.packUnit && i.unitsPerPack && <div className="muted cell-sub">{money(i.costPerUnit * i.unitsPerPack)} / {i.packUnit}</div>}
+                    </td>
                     <td className="num">{money(Math.max(i.quantity, 0) * i.costPerUnit)}</td>
                     <td>
                       <div className="row-actions">
@@ -109,18 +118,33 @@ export default function Stock() {
         )}
       </section>
 
-      {editing && <ItemForm item={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload(); }} />}
+      {editing && (
+        <ItemForm
+          item={editing === 'new' ? null : editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); reload(); }}
+          onConvert={(item) => { setEditing(null); setConverting(item); }}
+        />
+      )}
+      {converting && <ConvertForm item={converting} onClose={() => setConverting(null)} onSaved={() => { setConverting(null); reload(); }} />}
       {adjusting && <AdjustForm item={adjusting} onClose={() => setAdjusting(null)} onSaved={() => { setAdjusting(null); reload(); }} />}
       {history && <History item={history} onClose={() => setHistory(null)} />}
     </>
   );
 }
 
-function ItemForm({ item, onClose, onSaved }: { item: StockItem | null; onClose: () => void; onSaved: () => void }) {
+function ItemForm({ item, onClose, onSaved, onConvert }: {
+  item: StockItem | null;
+  onClose: () => void;
+  onSaved: () => void;
+  onConvert: (item: StockItem) => void;
+}) {
   const toast = useToast();
   const [form, setForm] = useState({
     name: item?.name ?? '',
     unit: item?.unit ?? 'kg',
+    packUnit: item?.packUnit ?? '',
+    unitsPerPack: item?.unitsPerPack ? String(item.unitsPerPack) : '',
     quantity: '',
     reorderLevel: item ? String(item.reorderLevel) : '',
     costPerUnit: item ? String(item.costPerUnit) : '',
@@ -131,7 +155,15 @@ function ItemForm({ item, onClose, onSaved }: { item: StockItem | null; onClose:
   async function submit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const data = { name: form.name, unit: form.unit, reorderLevel: Number(form.reorderLevel) || 0, costPerUnit: Number(form.costPerUnit) || 0 };
+    const hasPack = form.packUnit.trim() !== '';
+    const data = {
+      name: form.name,
+      unit: form.unit,
+      packUnit: hasPack ? form.packUnit.trim() : null,
+      unitsPerPack: hasPack ? Number(form.unitsPerPack) || null : null,
+      reorderLevel: Number(form.reorderLevel) || 0,
+      costPerUnit: Number(form.costPerUnit) || 0,
+    };
     try {
       if (item) await api.stock.update(item.id, data);
       else await api.stock.create({ ...data, quantity: Number(form.quantity) || 0 });
@@ -162,12 +194,35 @@ function ItemForm({ item, onClose, onSaved }: { item: StockItem | null; onClose:
             <datalist id="units"><option value="kg" /><option value="g" /><option value="L" /><option value="ml" /><option value="pcs" /><option value="pack" /></datalist>
           </label>
         </div>
-        <div className={item ? 'grid-2' : 'grid-3'}>
-          {!item && <label className="field"><span className="field-label">Opening qty</span><input className="input" type="number" step="any" min="0" value={form.quantity} onChange={set('quantity')} /></label>}
-          <label className="field"><span className="field-label">Reorder level</span><input className="input" type="number" step="any" min="0" value={form.reorderLevel} onChange={set('reorderLevel')} /></label>
-          <label className="field"><span className="field-label">Cost per unit</span><input className="input" type="number" step="any" min="0" value={form.costPerUnit} onChange={set('costPerUnit')} /></label>
+        <div className="grid-2">
+          <label className="field">
+            <span className="field-label">Pack name (optional)</span>
+            <input className="input" list="pack-units" value={form.packUnit} onChange={set('packUnit')} placeholder="e.g. pack, box" />
+            <datalist id="pack-units"><option value="pack" /><option value="box" /><option value="carton" /><option value="crate" /></datalist>
+          </label>
+          <label className="field">
+            <span className="field-label">{form.unit || 'Units'} per {form.packUnit || 'pack'}</span>
+            <input className="input" type="number" step="any" min="0" value={form.unitsPerPack} onChange={set('unitsPerPack')} disabled={!form.packUnit.trim()} required={!!form.packUnit.trim()} placeholder="e.g. 20" />
+          </label>
         </div>
-        {item && <p className="field-hint">To change the quantity on hand, use Adjust or record a purchase so every change is logged.</p>}
+        {form.packUnit.trim() && (
+          <p className="field-hint form-note">
+            Stock is counted in single {form.unit}. A menu item whose recipe uses 1 {form.unit} sells one loose unit;
+            one using {form.unitsPerPack || 'N'} {form.unit} sells a whole {form.packUnit}.
+          </p>
+        )}
+        <div className={item ? 'grid-2' : 'grid-3'}>
+          {!item && <label className="field"><span className="field-label">Opening qty ({form.unit})</span><input className="input" type="number" step="any" min="0" value={form.quantity} onChange={set('quantity')} /></label>}
+          <label className="field"><span className="field-label">Reorder level ({form.unit})</span><input className="input" type="number" step="any" min="0" value={form.reorderLevel} onChange={set('reorderLevel')} /></label>
+          <label className="field"><span className="field-label">Cost per {form.unit || 'unit'}</span><input className="input" type="number" step="any" min="0" value={form.costPerUnit} onChange={set('costPerUnit')} /></label>
+        </div>
+        {item && (
+          <p className="field-hint">
+            To change the quantity on hand, use Adjust or record a purchase so every change is logged.
+            Counted in whole {item.unit} but want to sell single pieces?{' '}
+            <button type="button" className="link-button" onClick={() => onConvert(item)}>Convert to loose units…</button>
+          </p>
+        )}
       </form>
     </Modal>
   );
@@ -178,7 +233,9 @@ function AdjustForm({ item, onClose, onSaved }: { item: StockItem; onClose: () =
   const [mode, setMode] = useState<'add' | 'remove' | 'wastage'>('remove');
   const [qty, setQty] = useState('');
   const [note, setNote] = useState('');
+  const [inPacks, setInPacks] = useState(false);
   const [saving, setSaving] = useState(false);
+  const size = inPacks && item.unitsPerPack ? item.unitsPerPack : 1;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -186,7 +243,7 @@ function AdjustForm({ item, onClose, onSaved }: { item: StockItem; onClose: () =
     if (!(n > 0)) return toast.error('Enter a quantity greater than zero');
     setSaving(true);
     try {
-      await api.stock.adjust(item.id, mode === 'add' ? n : -n, mode === 'wastage' ? 'wastage' : 'adjustment', note);
+      await api.stock.adjust(item.id, mode === 'add' ? n : -n, mode === 'wastage' ? 'wastage' : 'adjustment', note, inPacks);
       toast.success('Stock updated');
       onSaved();
     } catch (err) {
@@ -196,7 +253,7 @@ function AdjustForm({ item, onClose, onSaved }: { item: StockItem; onClose: () =
     }
   }
 
-  const after = item.quantity + (mode === 'add' ? 1 : -1) * (Number(qty) || 0);
+  const after = item.quantity + (mode === 'add' ? 1 : -1) * (Number(qty) || 0) * size;
 
   return (
     <Modal
@@ -214,9 +271,17 @@ function AdjustForm({ item, onClose, onSaved }: { item: StockItem; onClose: () =
           ))}
         </div>
         <label className="field">
-          <span className="field-label">Quantity ({item.unit})</span>
-          <input className="input" type="number" step="any" min="0" value={qty} onChange={(e) => setQty(e.target.value)} required autoFocus />
-          <span className="field-hint">On hand: {formatQty(item.quantity)} {item.unit} → after: <strong>{formatQty(after)} {item.unit}</strong></span>
+          <span className="field-label">Quantity ({inPacks ? item.packUnit : item.unit})</span>
+          <div className="row" style={{ gap: 'var(--space-2)' }}>
+            <input className="input" type="number" step="any" min="0" value={qty} onChange={(e) => setQty(e.target.value)} required autoFocus />
+            {item.packUnit && item.unitsPerPack && (
+              <select className="input" style={{ width: 'auto' }} value={inPacks ? 'pack' : 'unit'} onChange={(e) => setInPacks(e.target.value === 'pack')} aria-label="Counted in">
+                <option value="unit">{item.unit}</option>
+                <option value="pack">{item.packUnit} ({item.unitsPerPack})</option>
+              </select>
+            )}
+          </div>
+          <span className="field-hint">On hand: {formatStock(item.quantity, item)} → after: <strong>{formatStock(after, item)}</strong></span>
         </label>
         <label className="field" style={{ marginBottom: 0 }}>
           <span className="field-label">Note</span>
@@ -252,6 +317,67 @@ function History({ item, onClose }: { item: StockItem; onClose: () => void }) {
           </table>
         </div>
       )}
+    </Modal>
+  );
+}
+
+/** Re-bases an item onto a smaller unit, e.g. counted in packs → counted in single pieces. */
+function ConvertForm({ item, onClose, onSaved }: { item: StockItem; onClose: () => void; onSaved: () => void }) {
+  const { money } = useRestaurant();
+  const toast = useToast();
+  const [unit, setUnit] = useState('pcs');
+  const [factor, setFactor] = useState('');
+  const [saving, setSaving] = useState(false);
+  const f = Number(factor);
+  const newUnit = unit.trim();
+  const valid = newUnit !== '' && newUnit !== item.unit && f > 0 && f !== 1;
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!valid) return toast.error(`Enter a new unit and how many of them make one ${item.unit}`);
+    setSaving(true);
+    try {
+      await api.stock.convert(item.id, { unit: newUnit, factor: f, packUnit: item.unit });
+      toast.success(`${item.name} is now counted in ${newUnit}`);
+      onSaved();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      title={`Convert ${item.name} to loose units`}
+      onClose={onClose}
+      footer={<>
+        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" type="submit" form="convert-form" disabled={saving || !valid}>{saving ? 'Converting…' : 'Convert'}</button>
+      </>}
+    >
+      <form id="convert-form" onSubmit={submit}>
+        <p className="field-hint" style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>
+          Counts this item in single units from now on, so menu items can sell one piece at a time
+          (e.g. one cigarette from a pack). Stock, reorder level, cost, recipes and history are all rescaled,
+          and you can still buy and count it by the {item.unit}.
+        </p>
+        <div className="grid-2">
+          <label className="field"><span className="field-label">New base unit</span><input className="input" value={unit} onChange={(e) => setUnit(e.target.value)} required autoFocus /></label>
+          <label className="field">
+            <span className="field-label">{newUnit || 'Units'} in one {item.unit}</span>
+            <input className="input" type="number" step="any" min="0" value={factor} onChange={(e) => setFactor(e.target.value)} placeholder="e.g. 20" required />
+          </label>
+        </div>
+        {valid && (
+          <ul className="line-items">
+            <li><span>On hand</span><span>{formatQty(item.quantity)} {item.unit} → <strong>{formatQty(item.quantity * f)} {newUnit}</strong></span></li>
+            <li><span>Reorder level</span><span>{formatQty(item.reorderLevel)} {item.unit} → <strong>{formatQty(item.reorderLevel * f)} {newUnit}</strong></span></li>
+            <li><span>Cost</span><span>{money(item.costPerUnit)} / {item.unit} → <strong>{money(Math.round((item.costPerUnit / f) * 100) / 100)} / {newUnit}</strong></span></li>
+            <li><span>Recipes</span><span>quantities × {formatQty(f)}</span></li>
+          </ul>
+        )}
+      </form>
     </Modal>
   );
 }

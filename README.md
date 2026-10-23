@@ -1,152 +1,319 @@
 # AFOS — Restaurant OS
 
-Restaurant management in one app: point of sale and billing, a live kitchen display, table QR ordering,
-stock with automatic recipe deduction, purchases, customers and reports.
+Run a restaurant from one app: point of sale and billing, a live kitchen display with an order bell, table QR
+ordering, stock that deducts down to single loose units, purchases, staff and payroll, customers and reports.
 
-## Modules
+It runs on one computer in the restaurant (the **server PC**). Every other device on the same Wi-Fi, such as the
+cashier's laptop, a kitchen tablet, waiters' phones and guests scanning table QR codes, uses it through a browser.
+Nothing needs to be installed on those devices.
+
+- [Features](#features)
+- [Start the system (first time)](#start-the-system-first-time)
+- [Everyday use](#everyday-use)
+- [Use it on other devices](#use-it-on-other-devices)
+- [Set it up on another computer](#set-it-up-on-another-computer)
+- [Commands](#commands) · [Configuration](#configuration) · [Database](#database) · [Live updates](#live-updates)
+- [Reliability](#reliability) · [Backups & restore](#backups--restore) · [Troubleshooting](#troubleshooting)
+- [Hosting it online](#hosting-it-online)
+
+---
+
+## Features
 
 | Sidebar | What it does | Who can use it |
 |---|---|---|
-| **Dashboard** | Today's sales, open bills, occupied tables, kitchen load, 7-day chart, top sellers, low stock | admin, cashier |
-| **Menu** | Items, photos, categories, availability, and per-item **recipes** (ingredients used per serving) | admin |
-| **Tables & QR** | Live floor: free/occupied, open bill per table; take an order, settle a bill, print table QR codes | admin, cashier (QR/add/remove: admin) |
-| **POS / Billing** | Counter ordering: dine-in or takeaway, customer lookup, discount, service charge and VAT, cash/card/eSewa/Khalti, change due, printable receipts; settle open bills | admin, cashier |
-| **Purchases** | Record deliveries from suppliers (adds to stock, updates cost), mark paid/unpaid, void; manage suppliers | admin |
-| **Stock** | Ingredients on hand, reorder levels, stock value, adjustments and wastage, full movement history | admin; chef can view and adjust |
-| **Customers** | Customer list with visits and lifetime spend, profile with order history | admin, cashier |
-| **Orders** | Every order by date range, status, type; change status, cancel (returns stock), bill and reprint | admin, cashier |
-| **Kitchen** | Ticket board that refreshes every 5 s; start cooking → ready → served | everyone |
-| **Reports** | Net/gross sales, discounts, service charge, VAT, cost of goods and gross profit, sales by day, category, payment method and hour, top items; CSV export and print | admin |
+| **Dashboard** | Today's sales, open bills, occupied tables, kitchen load, 7-day chart, top sellers, low stock. Updates the moment an order is placed | admin, cashier |
+| **Menu** | Items, photos, categories, availability, and per-item **recipes** (stock used per serving) | admin |
+| **Tables & QR** | Live floor plan with the open bill per table; take orders, settle bills, print table QR codes | admin, cashier (QR, add and remove tables: admin only) |
+| **POS / Billing** | Dine-in or takeaway, customer lookup, discount, service charge and VAT, cash/card/eSewa/Khalti, change due, printable receipts | admin, cashier |
+| **Purchases** | Record supplier deliveries by unit **or by pack** (adds stock, updates cost), paid/unpaid, void; manage suppliers | admin |
+| **Stock** | Quantities on hand (shown in packs and loose units), reorder levels, stock value, adjustments and wastage, movement history | admin; chef can view and adjust |
+| **Customers** | Customers with visits and lifetime spend, order history per guest | admin, cashier (Pro plan) |
+| **Orders** | Every order by date, status and type; change status, cancel (returns stock), reprint bills | admin, cashier |
+| **Kitchen** | Ticket board. New orders appear **instantly** with a **bell sound and a popup**; start cooking → ready → served | everyone |
+| **Staff & Payroll** | Staff directory, roles and sign-in access, **departments/categories**, deactivation, salary, bonus, overtime, deductions, payment history and CSV export | admin |
+| **Reports** | Net/gross sales, discounts, service charge, VAT, cost of goods, gross profit, sales by day/category/payment/hour, top items; CSV and print | admin |
 
-**Plans**: premium features (currently **Customers**) need the `pro` plan. On `free`, the page shows an upgrade
-screen, the sidebar shows a lock, and the API answers `402 feature_locked`. Existing installs are `pro`;
-change it with `npm run plan -- free|pro` until a billing provider is connected.
+**Low-stock alerts.** After every sale, adjustment or voided purchase the stock levels are checked. When an item drops
+to or below its reorder level, or runs out, the admin and cashier screens show a popup with a chime. A bell in the top
+bar lists everything that is currently low.
 
-**How the numbers work**
-- Bill = subtotal − discount, + service charge (dine-in only), + VAT on that amount. Rates are set in **Settings**.
-- Selling an item deducts its recipe ingredients from stock; cancelling the order puts them back. Purchases add stock
-  and set the item's latest cost, which is used for stock value and cost of goods.
+**Selling single units out of a pack** (for example one cigarette from a pack of 20):
+1. **Stock → Add item**: unit `pcs`, pack name `pack`, `20` per pack. Stock is then counted in single pieces.
+2. **Menu**: create *Cigarette (single)* with a recipe of **1 pcs**, and *Cigarette pack* with **20 pcs**.
+3. **Purchases**: buy it "by pack". 2 packs at Rs. 400 are stored as 40 pcs at Rs. 20.
+
+If an item is already counted in packs, use **Stock → Edit → Convert to loose units**. It rescales the stock,
+reorder level, cost, recipes and history in one step.
+
+**How the bill is calculated.** Subtotal − discount, + service charge (dine-in only), + VAT on that amount. Rates are set
+in **Settings**. Selling an item deducts its recipe from stock and cancelling the order puts it back.
+
+**Plans.** Premium features (currently **Customers**) need the `pro` plan. New restaurants start on `free`; switch with
+`npm run plan -- pro`.
 
 | Part | Tech | Folder |
 |---|---|---|
 | Web app | React 19 + Vite + TypeScript | `src/` |
-| API | Node + Express + Prisma | `server/` |
+| API | Node + Express + Prisma, Server-Sent Events for live updates | `server/` |
 | Database | PostgreSQL 16 (Docker) | `docker-compose.yml` |
-
-> `AFOS.Desktop/` is a separate Avalonia desktop app and is not covered by this README.
+| Desktop app (optional) | Avalonia + .NET 8, talks to the database directly | `AFOS.Desktop/` (see its own README) |
 
 ---
 
-## Quick start (any laptop)
+## Start the system (first time)
 
-**Prerequisites:** [Node.js 20+](https://nodejs.org) and [Docker Desktop](https://www.docker.com/products/docker-desktop/) (running).
+Do this on the computer that will act as the server.
+
+**You need:** [Node.js 20+](https://nodejs.org) and [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+Docker Desktop must be open and show "Engine running".
 
 ```bash
-# 1. Clone
+# 1. Get the code
 git clone <your-repo-url> afos
 cd afos
 
-# 2. Create your .env from the template, then edit it:
-#    set POSTGRES_PASSWORD (and the same password inside DATABASE_URL) and JWT_SECRET
+# 2. Create your settings file from the template
 cp .env.example .env            # Windows PowerShell: Copy-Item .env.example .env
+```
 
-# 3. Install web dependencies
+3. Open `.env` and change at least these:
+   - `POSTGRES_PASSWORD`: any password. Put the **same** password inside `DATABASE_URL`.
+   - `JWT_SECRET`: a long random string. Generate one with
+     `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+   - `SEED_ADMIN_PASSWORD`, `SEED_CASHIER_PASSWORD`, `SEED_CHEF_PASSWORD`: passwords for the first three accounts.
+
+```bash
+# 4. Install and start (database + API + web app)
 npm install
-
-# 4. Start everything: database + API (migrations and seed run automatically) + web app
 npm start
 ```
 
-Open **http://localhost:5173** and sign in:
+The first start takes a few minutes while Docker builds the API. When it's done, open **http://localhost:5173** and sign in:
 
-| Account | Lands on | Password (from `.env`) |
+| Account | Opens on | Password |
 |---|---|---|
-| `admin` (owner/manager) | Dashboard | `SEED_ADMIN_PASSWORD` (default `admin123`) |
-| `cashier` (front of house) | POS / Billing | `SEED_CASHIER_PASSWORD` (default `cashier123`) |
-| `chef` (kitchen) | Kitchen | `SEED_CHEF_PASSWORD` (default `chef123`) |
+| `admin` (owner/manager) | Dashboard | `SEED_ADMIN_PASSWORD` |
+| `cashier` (front of house) | POS / Billing | `SEED_CASHIER_PASSWORD` |
+| `chef` (kitchen) | Kitchen | `SEED_CHEF_PASSWORD` |
 
-A guest menu is at **http://localhost:5173/table/table-1**. A brand-new database is seeded with a demo restaurant
-(17 menu items with recipes, 15 stock items, 3 suppliers, 8 tables). An existing database is never overwritten;
-run `npm run db:demo` to add the demo menu, stock and suppliers to it.
+The seed passwords only apply the first time an account is created. After that, add and manage people in
+**Staff & Payroll**: give each person their own account, or make them payroll-only staff (waiters, cleaners) who never sign in.
 
-`npm start` = `npm run up` (Docker: Postgres, API, backups — waits until healthy) followed by `npm run dev` (Vite).
-Next time, if the containers are already running, `npm run dev` is enough. They restart automatically with Docker Desktop.
+A brand-new database comes with a demo restaurant: 17 menu items with recipes, 15 stock items, 3 suppliers, 8 tables
+and 5 staff departments. It never overwrites an existing database. `npm run db:demo` adds the demo menu to an
+existing one.
 
-### The second laptop
+---
 
-Exactly the same steps. Nothing is machine-specific: the database lives in a Docker volume and is created,
-migrated and seeded on first start. To bring over real data from the first laptop, see [Backups](#backups--restore).
+## Everyday use
 
-### Step-by-step (without the one-liner)
+| Situation | What to do |
+|---|---|
+| Start of the day, or after restarting the PC | Open Docker Desktop (the database and API start by themselves), then run `npm run dev` in the project folder |
+| Close for the day | Close the terminal running `npm run dev`. The database can keep running; `npm run down` stops it |
+| You pulled new code or changed anything in `server/` | Run **`npm run up`**. It rebuilds the API and applies database changes. The web app updates by itself, but the API only picks up changes when it's rebuilt |
+| Something looks broken | `npm run logs` shows what the API is doing. See [Troubleshooting](#troubleshooting) |
 
-Use this if you want to run the API on your machine (for example to debug it with hot reload):
+> If a page fails right after an update (e.g. **Staff & Payroll** shows an error), the API is almost always still on
+> the old build. Run `npm run up`, then reload the browser with **Ctrl+Shift+R**.
+
+---
+
+## Use it on other devices
+
+Any phone, tablet or laptop **on the same Wi-Fi/network** as the server PC can use AFOS in its browser. The server
+PC has to stay on with `npm run dev` running.
+
+### 1. Find the server PC's address
+
+When `npm run dev` starts, it prints the addresses it's reachable on:
+
+```
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: http://192.168.1.25:5173/
+```
+
+Use the **Network** address of your Wi-Fi or Ethernet connection. If several are listed, run `ipconfig` (Windows) and
+take the *IPv4 Address* under **Wireless LAN adapter Wi-Fi** (or **Ethernet adapter**); addresses from Docker/WSL
+adapters (often `172.x`) won't work from other devices. The examples below use `192.168.1.25`. Replace it with yours.
+
+### 2. Allow it through the Windows firewall (once)
+
+The first time Node.js runs, Windows may ask whether to allow it on networks. Tick **Private networks** and allow it.
+If you missed that, run this once in **PowerShell as Administrator**:
+
+```powershell
+New-NetFirewallRule -DisplayName "AFOS web app" -Direction Inbound -Protocol TCP -LocalPort 5173,4173 -Action Allow -Profile Private
+```
+
+Also check that your Wi-Fi is set to **Private** in Windows (Settings → Network & internet → Wi-Fi → your network →
+*Private network*). On a *Public* network Windows blocks incoming connections.
+
+### 3. Open it on each device
+
+| Device | Open | Sign in as |
+|---|---|---|
+| Cashier laptop / tablet | `http://192.168.1.25:5173` | a cashier account |
+| Kitchen tablet or screen | `http://192.168.1.25:5173/kitchen` | a kitchen (chef) account |
+| Manager's phone | `http://192.168.1.25:5173` | admin |
+| Guests | scan the table QR code (below) | no account needed |
+
+Tips:
+- **Kitchen bell:** browsers only play sound after you touch the page once. After opening or reloading the kitchen
+  screen, tap the yellow *"Tap here once to enable the order bell"* bar. Keep the tablet's volume up and stop it from
+  going to sleep while the kitchen is open.
+- **Add to home screen:** in Chrome or Safari, use *Add to Home screen* so staff can open AFOS like an app.
+- Each device signs in separately and stays signed in for 12 hours.
+
+### 4. Print table QR codes from the network address
+
+QR codes point at the address the admin's browser is using. Open **Tables & QR** at
+`http://192.168.1.25:5173/tables`, **not** `localhost`, before printing. Otherwise the codes point at `localhost` and
+won't work on guests' phones. If the server PC's address ever changes, reprint them.
+
+### 5. Keep the address from changing
+
+Home and office routers can give the server PC a different address after a restart, which breaks bookmarks and QR
+codes. In your router's admin page, set a **DHCP reservation** (also called "static lease" or "fixed IP") for the
+server PC. The router's admin page is usually at `192.168.1.1` or `192.168.0.1`; the setting is under LAN or DHCP.
+
+### Faster, more stable mode (optional)
+
+`npm run dev` is the development server. For long service days you can serve the optimised build instead:
+
+```bash
+npm run build      # once after each update
+npm run preview    # serves it on port 4173
+```
+
+Devices then open `http://192.168.1.25:4173`. It behaves the same, loads faster, and uses less of the server PC's power.
+
+### Desktop app on another computer
+
+`AFOS.Desktop` connects straight to the database rather than through the web app. On another PC, point its
+`config.json` at the server PC. The database listens on port **5433** with the user and password from `.env`:
+
+```json
+{ "ConnectionString": "Host=192.168.1.25;Port=5433;Database=afos;Username=afos;Password=<POSTGRES_PASSWORD>" }
+```
+
+Allow the port once on the server PC (PowerShell as Administrator):
+`New-NetFirewallRule -DisplayName "AFOS database" -Direction Inbound -Protocol TCP -LocalPort 5433 -Action Allow -Profile Private`.
+Only open this port on a network you trust, because anyone who knows the password can read the database. The
+desktop app covers a subset of the web app; staff & payroll, stock packs and the kitchen bell are web-only.
+
+### Outside the restaurant's network
+
+Devices on mobile data or another Wi-Fi can't reach the server PC directly. Options:
+- **Put it online** with a proper host. See [Hosting it online](#hosting-it-online).
+- **Private remote access** for the owner: install [Tailscale](https://tailscale.com) (free) on the server PC and your
+  phone, then open `http://<server-PC-tailscale-name>:5173`.
+
+Don't forward ports on your router to expose the server PC to the internet.
+
+---
+
+## Set it up on another computer
+
+**To make another computer the server**, for example a new PC or a second branch: follow
+[Start the system](#start-the-system-first-time) on it. Nothing is tied to a particular machine.
+
+**To move your data to it:**
+1. On the old server, take a backup (see [Backups](#backups--restore)) and copy the `backups/` file **and** the
+   `server/uploads/` folder (menu photos) to the new computer.
+2. On the new computer, run `npm start` once, then restore the backup and copy `uploads` into `server/uploads/`.
+3. Run `npm run up` so any newer database changes are applied on top of the restored data.
+
+Use the same `JWT_SECRET` on the new computer if you want existing sign-ins to keep working; otherwise everyone just
+signs in again.
+
+**Developing on a second laptop** (running the API with auto-reload instead of in Docker):
 
 ```bash
 npm install                 # web dependencies
 npm run server:install      # API dependencies (also generates the Prisma client)
-npm run db:up               # start only Postgres in Docker, wait until healthy
+npm run db:up               # start only Postgres in Docker
 npm run db:migrate          # apply migrations   (safe to re-run)
 npm run db:seed             # seed demo data     (safe to re-run, never duplicates)
-npm run dev:local           # Vite + API with auto-reload, side by side
+npm run dev:local           # web app + API with auto-reload, side by side
 ```
 
-Don't run `dev:local` while the Docker `api` container is running, because both use port 3001. Stop it first with `docker compose stop api`.
+Stop the Docker API first (`docker compose stop api`), because both use port 3001.
 
-### All scripts
+---
+
+## Commands
 
 | Command | What it does |
 |---|---|
-| `npm start` | Docker stack up + web dev server |
-| `npm run up` / `npm run down` | Start / stop Postgres, API and backup containers |
+| `npm start` | Start everything: Docker (database, API, backups) + web app |
+| `npm run up` / `npm run down` | Start (and rebuild) / stop the Docker containers. **Run `up` after any server change** |
+| `npm run dev` | Web app only, on port 5173, reachable from the network. Forwards `/api` to the API on port 3001 |
 | `npm run logs` | Follow the API's logs |
-| `npm run dev` | Web app only (proxies `/api` to `localhost:3001`) |
-| `npm run dev:local` | Web app + API running locally (needs `npm run db:up`) |
-| `npm run build` / `npm run preview` | Production build / serve the build at http://localhost:4173 |
-| `npm run lint` | ESLint for web and API code |
-| `npm run db:migrate` / `db:seed` / `db:setup` | Migrations / seed / both, against `DATABASE_URL` |
-| `npm run plan -- free\|pro` | Show or change the subscription plan (gates premium features such as Customers) |
-| `npm run db:demo` | Add the demo restaurant (menu, stock, recipes, suppliers) to an existing database. Safe to re-run |
+| `npm run build` / `npm run preview` | Build the optimised web app / serve it on port 4173, reachable from the network |
+| `npm run dev:local` | Web app + API running locally with auto-reload (needs `npm run db:up`) |
+| `npm run lint` | Check web and API code |
+| `npm run db:migrate` / `db:seed` / `db:setup` | Apply migrations / seed / both, against `DATABASE_URL` |
+| `npm run db:demo` | Add the demo restaurant to an existing database. Safe to re-run |
+| `npm run plan -- free\|pro` | Show or change the subscription plan |
 
 ---
 
 ## Configuration
 
-Everything lives in **one root `.env`** (template: `.env.example`), shared by docker compose, the API, Prisma and Vite.
-The API validates it on startup and exits with a clear list of anything missing or invalid.
+Everything lives in **one `.env` file** in the project folder (template: `.env.example`). It is shared by Docker, the
+API, Prisma and the web app. The API checks it on startup and lists anything missing or invalid.
 
-| Variable | Required | Used by | Notes |
-|---|---|---|---|
-| `POSTGRES_USER` / `POSTGRES_DB` | – | compose | default `afos` |
-| `POSTGRES_PASSWORD` | ✔ | compose | |
-| `POSTGRES_PORT` | – | compose | host port, default **5433** (avoids a local Postgres on 5432) |
-| `DATABASE_URL` | ✔ | API, Prisma | for running outside Docker; compose builds its own |
-| `JWT_SECRET` | ✔ | API | ≥ 16 chars. `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-| `API_PORT` | – | API, Vite proxy | default 3001 |
-| `CORS_ORIGINS` | – | API | comma-separated frontend origins |
-| `LOG_LEVEL` | – | API | `debug` / `info` / `warn` / `error` |
-| `SEED_ADMIN_PASSWORD` / `SEED_CASHIER_PASSWORD` / `SEED_CHEF_PASSWORD` | ✔ in prod | seed | only used when the account doesn't exist yet |
-| `BACKUP_RETENTION_DAYS` | – | backup | default 14 |
-| `VITE_SALES_EMAIL` / `VITE_UPGRADE_URL` | – | browser | Where "Contact sales" / "Upgrade" go on the Feature locked page |
-| `VITE_API_URL` | – | browser | API origin in production; empty in development. Only `VITE_*` values reach the browser, so never put secrets in them. |
+| Variable | Required | Notes |
+|---|---|---|
+| `POSTGRES_USER` / `POSTGRES_DB` | – | default `afos` |
+| `POSTGRES_PASSWORD` | ✔ | Kept from the database's first start. Changing it later needs a database password change too |
+| `POSTGRES_PORT` | – | port on the server PC, default **5433** (avoids clashing with another Postgres on 5432) |
+| `DATABASE_URL` | ✔ | for commands run outside Docker; must contain the same password |
+| `JWT_SECRET` | ✔ | at least 16 characters. Changing it signs everyone out |
+| `API_PORT` | – | default 3001 |
+| `CORS_ORIGINS` | – | only needed when the web app is hosted on a different domain from the API (see hosting) |
+| `LOG_LEVEL` | – | `debug` / `info` / `warn` / `error` |
+| `SEED_ADMIN_PASSWORD` / `SEED_CASHIER_PASSWORD` / `SEED_CHEF_PASSWORD` | ✔ in production | only used when the account doesn't exist yet |
+| `BACKUP_RETENTION_DAYS` | – | default 14 |
+| `VITE_API_URL` | – | leave **empty** on a local network. Only set it when hosting the web app separately |
+| `VITE_SALES_EMAIL` / `VITE_UPGRADE_URL` | – | links on the "Feature locked" page |
+
+Only `VITE_*` values are sent to browsers, so never put secrets in them.
 
 ---
 
 ## Database
 
-**PostgreSQL**, accessed through **Prisma**. The data is relational (orders → order items → menu items → categories,
-orders → tables). It needs transactions and constraints, for example "a category can't be deleted while items use it".
-That makes Postgres the natural fit, and it was already in use.
+**PostgreSQL** through **Prisma**.
 
-Tables: `User`, `Restaurant` (details, currency, tax and service-charge rates — one row), `Category`, `MenuItem`,
-`RecipeItem` (ingredients per menu item), `Table`, `Customer`, `Order` (bill number, type, discount, service charge,
-tax, payment), `OrderItem`, `Supplier`, `Purchase`, `PurchaseItem`, `StockItem`, `StockMovement` (every stock change,
-with its reason).
+Tables: `User` (accounts and staff profiles), `StaffCategory` (departments), `StaffPayment` (payroll), `Restaurant`
+(settings, one row), `Category`, `MenuItem`, `RecipeItem`, `Table`, `Customer`, `Order`, `OrderItem`, `Supplier`,
+`Purchase`, `PurchaseItem`, `StockItem` (with optional pack size), `StockMovement` (every stock change and why).
 
-- **Migrations** live in `server/prisma/migrations/` and are applied with `prisma migrate deploy`. Prisma records what has
-  run, so re-running is a no-op. The newest migration is also written defensively (`IF NOT EXISTS`).
-- **Seed** (`server/prisma/seed.js`) only creates what's missing: users, restaurant settings and categories are upserts,
-  menu items are only added to an empty menu, and the four tables are upserted. Edits made in the admin panel are never overwritten.
-- In Docker, the API container runs migrate + seed on every start (`server/docker-entrypoint.sh`).
+- **Migrations** are in `server/prisma/migrations/`. Docker applies them automatically every time the API starts
+  (`server/docker-entrypoint.sh`); each runs only once.
+- **Seed** (`server/prisma/seed.js`) only creates what's missing: the three starter accounts, restaurant settings, and on
+  an empty database the demo menu, stock, suppliers and 8 tables. Your own edits are never overwritten.
+- Stock quantities are always stored in the item's base unit (e.g. single pieces), so fractional and loose-unit sales
+  deduct exactly.
+
+---
+
+## Live updates
+
+Staff screens keep one open connection to the API (`GET /api/events`, Server-Sent Events). The API pushes:
+
+| Event | Sent to | Effect |
+|---|---|---|
+| `order.created` | admin, cashier, kitchen | Kitchen bell + popup; dashboard and POS refresh |
+| `order.updated` | admin, cashier, kitchen | Status and payment changes appear on every screen |
+| `stock.low` | admin, cashier | Low-stock / out-of-stock popup and chime |
+
+If the connection drops, screens fall back to refreshing on a timer (the kitchen every 20 s) and reconnect on their
+own. The kitchen still rings for orders it picks up that way. Events come from the single API process; running several
+API copies behind a load balancer would need Redis or Postgres `LISTEN/NOTIFY` to share them.
 
 ---
 
@@ -154,49 +321,42 @@ with its reason).
 
 | Failure | What happens |
 |---|---|
-| API starts before Postgres | Compose waits for the DB health check. The API also retries the connection with backoff for ~4 min. |
-| Postgres restarts mid-service | Requests return `503` JSON; Prisma reconnects automatically; the UI shows "Reconnecting" and keeps the last data on screen. |
-| API crashes (uncaught exception) | Logged as `fatal`, process exits, Docker `restart: unless-stopped` starts a fresh one within seconds. |
-| Unhandled promise rejection | Logged as `error`; the process keeps serving. |
-| Bad request / unknown route | Clean JSON error (`400/404/409`), never a stack trace. |
-| Browser loses the API | Reads retry 3× with backoff. If they still fail, an offline banner appears and `/api/health` is polled every 5 s until the API is back. Then everything resumes on its own. |
-| A React render error | The error boundary shows a "Reload" screen instead of a blank page. |
-| Session expired | User is sent to the login page with a message. |
+| API starts before Postgres | Docker waits for the database health check, and the API retries the connection for ~4 min |
+| Postgres restarts mid-service | Requests return `503`, the connection recovers on its own, the UI shows "Reconnecting" and keeps the last data on screen |
+| API crashes | It's logged, and Docker restarts it within seconds |
+| Browser loses the API | Reads retry, an offline banner appears, and everything resumes once the API is back |
+| Live connection drops | Screens switch to timed refreshes and reconnect automatically |
+| A staff member is deactivated | They are signed out on every device within ~15 seconds |
+| A page crashes | A "Reload" screen appears instead of a blank page |
 
-- **Health check:** `GET /health` (and `/api/health`) → `200 {"status":"ok","db":"up",…}` or `503` if the database is down.
-  Docker uses it as the container health check.
-- **Logs** are one JSON object per line: `npm run logs`, or `docker compose logs api | grep '"level":"error"'`.
+**Health check:** `GET /health` → `200 {"status":"ok","db":"up",…}` or `503` if the database is down.
+**Logs:** one JSON object per line, via `npm run logs`.
 
 ---
 
 ## Backups & restore
 
-The `backup` container writes `backups/afos-YYYY-MM-DD_HHMM.sql.gz` on start and then every 24 h, and keeps
-`BACKUP_RETENTION_DAYS` days. Copy that folder somewhere off the laptop (cloud drive, USB) regularly.
+The `backup` container writes `backups/afos-YYYY-MM-DD_HHMM.sql.gz` on start and then every 24 h, keeping
+`BACKUP_RETENTION_DAYS` days. **Copy the `backups/` folder off the server PC regularly** (cloud drive or USB). Menu
+photos are in `server/uploads/`; back that up too.
 
 ```bash
-# Manual backup right now
+# Backup right now
 docker compose exec -T db pg_dump --clean --if-exists --no-owner -U afos afos > backups/manual.sql
 
-# Restore (replaces current data). PowerShell: use `docker compose cp` + `exec` as below instead of the pipe.
+# Restore (replaces current data) — macOS/Linux/Git Bash
 gunzip -c backups/afos-2026-10-14_0900.sql.gz | docker compose exec -T db psql -U afos -d afos
 ```
 
-On Windows PowerShell:
+Windows PowerShell:
 
 ```powershell
 docker compose cp backups\afos-2026-10-14_0900.sql.gz db:/tmp/restore.sql.gz
 docker compose exec db sh -c "gunzip -c /tmp/restore.sql.gz | psql -U afos -d afos"
+docker compose restart api        # re-applies newer migrations on top of the restored data
 ```
 
-**Moving data from your old local Postgres (pgAdmin, port 5432) into Docker:**
-
-```bash
-pg_dump --clean --if-exists --no-owner -h localhost -p 5432 -U postgres afos > old.sql
-docker compose cp old.sql db:/tmp/old.sql
-docker compose exec db psql -U afos -d afos -f /tmp/old.sql
-docker compose restart api        # re-applies any newer migrations + seed
-```
+For a plain `.sql` file, copy it in the same way and run `psql -U afos -d afos -f /tmp/<file>.sql`.
 
 ---
 
@@ -204,73 +364,74 @@ docker compose restart api        # re-applies any newer migrations + seed
 
 | Symptom | Fix |
 |---|---|
-| `AFOS API cannot start: invalid configuration` | The message lists the missing variables. Copy `.env.example` to `.env` and fill them in. |
-| `npm run up` fails with `Set POSTGRES_PASSWORD in .env` | Same: `.env` is missing or incomplete. |
-| `error during connect … dockerDesktopLinuxEngine` | Docker Desktop isn't running. Start it and wait for "Engine running". |
-| `port is already allocated` (5433 / 3001) | Another program uses the port. Change `POSTGRES_PORT` / `API_PORT` in `.env`, or stop the other program. |
-| Web app shows "We can't reach the server" | `docker compose ps`. If `api` isn't `healthy`, run `npm run logs`. It recovers by itself once the API is up. |
-| API logs `database not reachable, retrying` | Postgres is still starting or stopped: `docker compose up -d db`. |
-| `P3005 The database schema is not empty` | The DB was created by hand before migrations existed. Mark the old migrations as applied once: `cd server && node scripts/prisma.js migrate resolve --applied 20240101000000_init` (repeat for `…01_menu_autoincrement` and `…02_menu_image`), then `npm run db:migrate`. |
-| `password authentication failed` after changing `POSTGRES_PASSWORD` | Postgres keeps the password from the volume's first start. Change it back, or (this **deletes data**) `docker compose down -v`. |
-| Images missing after moving laptops | Uploaded photos live in `server/uploads/` (not in git). Copy that folder across too. |
-| Login keeps sending you back | Your session expired, or `JWT_SECRET` changed. Sign in again. |
-| A page sends you somewhere else | That role can't open it (e.g. the chef can't open Reports). Sign in as admin. |
-| Stock didn't change after a sale | The menu item has no recipe. Add its ingredients in **Menu → Edit item**. |
-| Stock shows a negative quantity | More was sold than was recorded as bought. Record the missing purchase or make an adjustment in **Stock**. |
-| Receipt prints the whole page | Use the **Print** button inside the bill window; set the printer's paper to your receipt width (e.g. 80 mm). |
-| Entry script fails with `\r: not found` | The script was checked out with Windows line endings. `git rm --cached -r . && git reset --hard` after pulling `.gitattributes`. |
+| A page (e.g. **Staff & Payroll**) shows an error after an update | The API is on an old build: `npm run up`, then **Ctrl+Shift+R** in the browser |
+| `AFOS API cannot start: invalid configuration` | The message lists what's missing. Fill those values in `.env` |
+| `npm run up` says `Set POSTGRES_PASSWORD in .env` | `.env` is missing or incomplete |
+| `error during connect … dockerDesktopLinuxEngine` | Docker Desktop isn't running. Open it and wait for "Engine running" |
+| `port is already allocated` (5433 / 3001) | Another program uses the port. Change `POSTGRES_PORT` / `API_PORT` in `.env` or stop it |
+| "We can't reach the server" | `docker compose ps`. If `api` isn't `healthy`, check `npm run logs` |
+| **Another device can't open the site** | Same Wi-Fi? Using the PC's Wi-Fi IPv4 address (not `localhost` or `172.x`)? Is `npm run dev` running? Is the network set to **Private** and the firewall rule added ([see above](#2-allow-it-through-the-windows-firewall-once))? |
+| **Guests' QR codes don't open** | They were printed from `localhost` or an old IP. Reprint from `http://<server-IP>:5173/tables` |
+| **No bell in the kitchen** | Tap the yellow "enable the order bell" bar once after loading; check that the bell button reads "Bell on" and the volume is up |
+| No low-stock popup | Popups appear only when an item *crosses* its reorder level, and only for admin and cashier. Check the item's reorder level in **Stock**. The top-bar bell lists everything already low |
+| Stock didn't change after a sale | The menu item has no recipe. Add one in **Menu → Edit item** |
+| "Use Convert units to change …" when editing stock | Changing the unit of an item with history would misread its quantities. Use **Convert to loose units** |
+| Stock shows a negative quantity | More was sold than bought. Record the purchase or make an adjustment |
+| Staff member can't sign in | Check in **Staff & Payroll** that they're active and not set to "Staff" (payroll-only roles can't sign in) |
+| `password authentication failed` after changing `POSTGRES_PASSWORD` | Postgres keeps its first password. Change it back, or (this **deletes all data**) `docker compose down -v` |
+| `P3005 The database schema is not empty` | The database was made by hand. Mark the first migrations applied once: `cd server && node scripts/prisma.js migrate resolve --applied 20240101000000_init` (repeat for `…01_menu_autoincrement`, `…02_menu_image`), then `npm run db:migrate` |
+| Photos missing after moving computers | Copy `server/uploads/` across |
+| Receipt prints the whole page | Use **Print** inside the bill window and set the paper to your receipt width (e.g. 80 mm) |
+| Entry script fails with `\r: not found` | Windows line endings: `git rm --cached -r . && git reset --hard` |
 
 ---
 
-## Deploying
+## Hosting it online
 
-The recommended split is **frontend on Vercel or Netlify** and **API + Postgres on Render or Railway**.
+To use AFOS from anywhere, or without keeping a PC on, host the **API + database** on Render or Railway and the
+**web app** on Vercel or Netlify.
 
 ### API + database (Render example)
 
-1. **New → PostgreSQL** (any plan with daily backups, i.e. a paid instance). Copy its *Internal Database URL*.
-2. **New → Web Service** from this repo:
-   - Root directory: `server` · Runtime: **Docker** (uses `server/Dockerfile`)
-   - Health check path: `/health`
-   - Environment:
-     | Key | Value |
-     |---|---|
-     | `DATABASE_URL` | the internal URL from step 1 |
-     | `JWT_SECRET` | long random string |
-     | `CORS_ORIGINS` | your frontend URL, e.g. `https://afos.vercel.app` |
-     | `SEED_ADMIN_PASSWORD`, `SEED_CASHIER_PASSWORD`, `SEED_CHEF_PASSWORD` | strong passwords |
-     | `TRUST_PROXY` | `true` |
-   - Add a **persistent disk** mounted at `/app/uploads` so menu photos survive deploys.
-3. **Migrations on deploy** happen automatically: the container's entrypoint runs `prisma migrate deploy` and the
-   idempotent seed before starting the server. A failed migration stops the deploy, and the previous version keeps running.
+1. **New → PostgreSQL** (a paid instance, which includes daily backups). Copy its *Internal Database URL*.
+2. **New → Web Service** from this repo: root directory `server`, runtime **Docker**, health check path `/health`.
+   Environment:
 
-Railway works the same way: add a Postgres plugin, deploy `server/` with its Dockerfile, set the same variables,
-attach a volume at `/app/uploads`, and set the health check to `/health`.
+   | Key | Value |
+   |---|---|
+   | `DATABASE_URL` | the internal URL from step 1 |
+   | `JWT_SECRET` | long random string |
+   | `CORS_ORIGINS` | your web app URL, e.g. `https://afos.vercel.app` |
+   | `SEED_ADMIN_PASSWORD`, `SEED_CASHIER_PASSWORD`, `SEED_CHEF_PASSWORD` | strong passwords |
+   | `TRUST_PROXY` | `true` |
 
-### Frontend (Vercel or Netlify)
+   Add a **persistent disk** at `/app/uploads` for menu photos.
+3. Migrations and the seed run automatically on every deploy. A failed migration stops the deploy and keeps the old
+   version running.
+4. Run a **single instance**. Live updates (kitchen bell, stock popups) are shared within one API process.
+
+Railway works the same way: Postgres plugin, deploy `server/` with its Dockerfile, the same variables, a volume at
+`/app/uploads`, health check `/health`.
+
+### Web app (Vercel or Netlify)
 
 - Build command `npm run build`, output directory `dist`.
-- Environment variable: `VITE_API_URL=https://<your-api>.onrender.com` (set before building; it is baked into the bundle).
-- Deep links (`/pos`, `/kitchen`, `/table/table-3` …) are handled by `vercel.json` (Vercel) and `public/_redirects` (Netlify),
-  which serve `index.html` for every path.
-- Print table QR codes from the **deployed** site so they point at the public URL.
+- Set `VITE_API_URL=https://<your-api>.onrender.com` **before** building; it is built into the app.
+- Deep links (`/pos`, `/kitchen`, `/table/table-3`) work through `vercel.json` / `public/_redirects`.
+- Print table QR codes from the **hosted** site so they point at the public address.
 
-### Single-server alternative
+### Single server
 
-`npm run build` puts the web app in `dist/`. The API automatically serves `dist/` (with an SPA fallback) when it exists,
-so one Node process (or one VPS running `docker compose`) can host everything.
+`npm run build` puts the web app in `dist/`; the API serves `dist/` automatically when it exists, so one Node process
+on a VPS can host everything.
 
----
+### Checklist when hosted
 
-## Uptime & recovery checklist (hosted)
-
-- [ ] Host health check set to `/health` and auto-restart on failure enabled (Render/Railway do this by default for Docker services).
-- [ ] [UptimeRobot](https://uptimerobot.com) (free) HTTP(s) monitor on `https://<api>/health`, 5-minute interval, alerting to email/phone.
-      A second keyword monitor on the frontend URL is cheap insurance.
-- [ ] Managed Postgres with **daily backups** enabled. Check that a backup exists on the first day.
-- [ ] Persistent disk attached at `/app/uploads`.
-- [ ] `JWT_SECRET` and seed passwords are strong and stored in your password manager.
-- [ ] **Monthly restore drill:** restore the latest backup into a scratch database and open the app against it.
-- [ ] **When an alert fires:** open the host's logs (JSON lines; filter `"level":"error"` or `"fatal"`) →
-      check `/health` (`db: down` means look at the database service; no response means look at the API service) →
-      redeploy the last good commit if a release broke it → restore from backup only if data is damaged.
+- [ ] Health check `/health` with auto-restart (default on Render/Railway for Docker services).
+- [ ] An [UptimeRobot](https://uptimerobot.com) monitor on `https://<api>/health` alerting your phone.
+- [ ] Daily database backups enabled, and checked on day one.
+- [ ] Persistent disk at `/app/uploads`.
+- [ ] Strong `JWT_SECRET` and seed passwords, stored in a password manager.
+- [ ] Monthly: restore the latest backup into a scratch database and check the app works against it.
+- [ ] When an alert fires: check the logs (`"level":"error"`/`"fatal"`) → `/health` (`db: down` means look at the
+      database, no answer means look at the API) → redeploy the last good version → restore from backup only if data is damaged.

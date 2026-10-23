@@ -23,9 +23,12 @@ async function main() {
     { id: '2', username: 'chef', role: 'chef', name: 'Chef', password: seedPassword('SEED_CHEF_PASSWORD', 'chef123') },
     { id: '3', username: 'cashier', role: 'cashier', name: 'Cashier', password: seedPassword('SEED_CASHIER_PASSWORD', 'cashier123') },
   ];
+  // Staff categories come from the staff_categories migration; place new seed users in theirs
+  const CATEGORY_FOR_ROLE = { admin: 'Management', cashier: 'Front of House', chef: 'Kitchen' };
   for (const { password, ...user } of users) {
     if (await prisma.user.findUnique({ where: { username: user.username } })) continue;
-    await prisma.user.create({ data: { ...user, password: await bcrypt.hash(password, 10) } });
+    const category = await prisma.staffCategory.findUnique({ where: { name: CATEGORY_FOR_ROLE[user.role] } });
+    await prisma.user.create({ data: { ...user, categoryId: category?.id ?? null, password: await bcrypt.hash(password, 10) } });
   }
 
   await prisma.restaurant.upsert({ where: { id: RESTAURANT.id }, update: {}, create: RESTAURANT });

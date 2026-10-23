@@ -10,7 +10,7 @@ import Modal from '../../components/Modal';
 import PaymentPanel from '../../components/PaymentPanel';
 import { ReceiptModal } from '../../components/Receipt';
 import { EmptyState, ErrorState, LoadingState } from '../../components/States';
-import { useFeature, usePolling, useRestaurant, useToast } from '../../hooks';
+import { useFeature, useLiveReload, usePolling, useRestaurant, useToast } from '../../hooks';
 import { billLabel, orderPlace, timeSince } from '../../lib/format';
 import { computeTotals } from '../../lib/pricing';
 import type { Customer, Order, OrderType, StaffPaymentMethod } from '../../types';
@@ -29,7 +29,12 @@ export default function Pos() {
 
   const menu = usePolling(loadMenu, 30_000);
   const tables = usePolling(api.tables.getAll, 15_000);
-  const bills = usePolling(loadOpenBills, 10_000);
+  const bills = usePolling(loadOpenBills, 30_000);
+  // QR orders and payments from other tills show up without waiting for the next poll
+  useLiveReload(() => {
+    bills.reload();
+    tables.reload();
+  }, ['order.created', 'order.updated']);
 
   const billTable = params.get('bill');
   const [tab, setTab] = useState<'new' | 'bills'>(billTable ? 'bills' : 'new');

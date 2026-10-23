@@ -21,6 +21,7 @@ const Customers = lazy(() => import('./pages/customers/Customers'));
 const Orders = lazy(() => import('./pages/admin/Orders'));
 const KitchenDisplay = lazy(() => import('./pages/kitchen/KitchenDisplay'));
 const Reports = lazy(() => import('./pages/reports/Reports'));
+const StaffPage = lazy(() => import('./pages/staff/Staff'));
 const Settings = lazy(() => import('./pages/admin/Settings'));
 
 const HOME: Record<Role, string> = { admin: '/dashboard', cashier: '/pos', chef: '/kitchen' };
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/orders" element={<Staff roles={FRONT}><Orders /></Staff>} />
           <Route path="/kitchen" element={<Staff roles={['admin', 'cashier', 'chef']}><KitchenDisplay /></Staff>} />
           <Route path="/reports" element={<Staff roles={ADMIN}><Reports /></Staff>} />
+          <Route path="/staff" element={<Staff roles={ADMIN}><StaffPage /></Staff>} />
           <Route path="/settings" element={<Staff roles={ADMIN}><Settings /></Staff>} />
 
           {/* Older links */}

@@ -43,12 +43,11 @@ export default function Login() {
             <span className="brand-name">{restaurant.name}</span>
           </div>
           <div>
-            <div className="hero-kicker">Hot and delicious</div>
+            <div className="hero-kicker">Restaurant OS</div>
             <div className="hero-title">Run your<br />restaurant<br />in one place</div>
             <p className="hero-sub">Orders, billing, kitchen, stock and reports, updating live across every screen.</p>
-            <div className="burst"><div><small>all in</small><strong>ONE</strong></div></div>
           </div>
-          <p className="subtle" style={{ color: 'var(--color-on-dark-muted)' }}>AFOS Restaurant OS · v{__APP_VERSION__}</p>
+          <p className="subtle">AFOS Restaurant OS · v{__APP_VERSION__}</p>
         </section>
 
         <section className="auth-form-wrap">

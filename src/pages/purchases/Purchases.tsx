@@ -153,7 +153,9 @@ function PurchaseList() {
   );
 }
 
-interface Line { stockItemId: string; quantity: string; unitCost: string }
+// With inPacks, quantity and unit cost are per pack; the API converts to the item's base unit.
+interface Line { stockItemId: string; quantity: string; unitCost: string; inPacks: boolean }
+const EMPTY_LINE: Line = { stockItemId: '', quantity: '', unitCost: '', inPacks: false };
 
 function PurchaseForm({ suppliers, stock, onClose, onSaved }: { suppliers: Supplier[]; stock: StockItem[]; onClose: () => void; onSaved: () => void }) {
   const { money } = useRestaurant();
@@ -163,7 +165,7 @@ function PurchaseForm({ suppliers, stock, onClose, onSaved }: { suppliers: Suppl
   const [date, setDate] = useState(toDateInput(new Date()));
   const [paid, setPaid] = useState(true);
   const [notes, setNotes] = useState('');
-  const [lines, setLines] = useState<Line[]>([{ stockItemId: '', quantity: '', unitCost: '' }]);
+  const [lines, setLines] = useState<Line[]>([EMPTY_LINE]);
   const [saving, setSaving] = useState(false);
 
   const setLine = (i: number, patch: Partial<Line>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
@@ -171,7 +173,7 @@ function PurchaseForm({ suppliers, stock, onClose, onSaved }: { suppliers: Suppl
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    const items = lines.filter((l) => l.stockItemId).map((l) => ({ stockItemId: Number(l.stockItemId), quantity: Number(l.quantity), unitCost: Number(l.unitCost) }));
+    const items = lines.filter((l) => l.stockItemId).map((l) => ({ stockItemId: Number(l.stockItemId), quantity: Number(l.quantity), unitCost: Number(l.unitCost), inPacks: l.inPacks }));
     if (!items.length) return toast.error('Add at least one item');
     setSaving(true);
     try {
@@ -221,26 +223,47 @@ function PurchaseForm({ suppliers, stock, onClose, onSaved }: { suppliers: Suppl
         {lines.map((l, i) => {
           const item = stock.find((s) => String(s.id) === l.stockItemId);
           return (
-            <div key={i} className="line-editor">
+            <div key={i} className="line-editor packs">
               <select
                 className="input"
                 value={l.stockItemId}
                 onChange={(e) => {
                   const s = stock.find((x) => String(x.id) === e.target.value);
-                  setLine(i, { stockItemId: e.target.value, unitCost: l.unitCost || (s ? String(s.costPerUnit) : '') });
+                  // Items with a pack size are usually bought by the pack
+                  const inPacks = Boolean(s?.packUnit && s.unitsPerPack);
+                  const cost = s ? (inPacks ? s.costPerUnit * s.unitsPerPack! : s.costPerUnit) : 0;
+                  setLine(i, { stockItemId: e.target.value, inPacks, unitCost: s ? String(Math.round(cost * 100) / 100) : '' });
                 }}
                 aria-label="Stock item"
               >
                 <option value="">Choose item…</option>
                 {stock.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.unit})</option>)}
               </select>
-              <input className="input" type="number" step="any" min="0" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} placeholder={`Qty${item ? ` (${item.unit})` : ''}`} aria-label="Quantity" required={!!l.stockItemId} />
-              <input className="input" type="number" step="any" min="0" value={l.unitCost} onChange={(e) => setLine(i, { unitCost: e.target.value })} placeholder="Unit cost" aria-label="Unit cost" required={!!l.stockItemId} />
+              <input className="input" type="number" step="any" min="0" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} placeholder="Qty" aria-label="Quantity" required={!!l.stockItemId} />
+              <select
+                className="input"
+                value={l.inPacks ? 'pack' : 'unit'}
+                disabled={!item?.packUnit}
+                onChange={(e) => {
+                  const inPacks = e.target.value === 'pack';
+                  const size = item?.unitsPerPack || 1;
+                  const cost = Number(l.unitCost);
+                  // Keep the cost consistent with the unit it is entered in
+                  const unitCost = l.unitCost === '' ? '' : String(Math.round((inPacks ? cost * size : cost / size) * 10000) / 10000);
+                  setLine(i, { inPacks, unitCost });
+                }}
+                aria-label="Counted in"
+                title={item?.packUnit ? `1 ${item.packUnit} = ${item.unitsPerPack} ${item.unit}` : undefined}
+              >
+                <option value="unit">{item?.unit ?? 'unit'}</option>
+                {item?.packUnit && <option value="pack">{item.packUnit} ({item.unitsPerPack})</option>}
+              </select>
+              <input className="input" type="number" step="any" min="0" value={l.unitCost} onChange={(e) => setLine(i, { unitCost: e.target.value })} placeholder={`Cost / ${l.inPacks && item?.packUnit ? item.packUnit : item?.unit ?? 'unit'}`} aria-label="Unit cost" required={!!l.stockItemId} />
               <button type="button" className="btn btn-ghost btn-icon" onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))} disabled={lines.length === 1} aria-label="Remove line"><Icon name="close" size={16} /></button>
             </div>
           );
         })}
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setLines((ls) => [...ls, { stockItemId: '', quantity: '', unitCost: '' }])}>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setLines((ls) => [...ls, EMPTY_LINE])}>
           <Icon name="plus" size={14} /> Add line
         </button>
 

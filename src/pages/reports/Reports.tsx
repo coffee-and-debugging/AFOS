@@ -69,7 +69,7 @@ export default function Reports() {
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div className="hero-kicker">{preset === 'custom' ? 'Custom period' : RANGE_LABEL[preset]}</div>
           <div className="hero-title">Net sales</div>
-          <div className="hero-stat-value" style={{ fontSize: 'var(--text-3xl)', marginTop: 'var(--space-3)' }}>{money(t.netSales)}</div>
+          <div className="hero-amount">{money(t.netSales)}</div>
           <p className="hero-sub">{t.orders} orders · {t.itemsSold} items · average bill {money(t.averageTicket)}</p>
         </div>
         <div className="hero-stats">

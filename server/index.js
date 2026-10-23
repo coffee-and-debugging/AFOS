@@ -8,6 +8,8 @@ const { rateLimit } = require('express-rate-limit');
 const logger = require('./lib/logger');
 const { errorHandler } = require('./lib/http');
 const prisma = require('./prisma');
+const events = require('./lib/events');
+const { requireAuth, ROLES } = require('./middleware/auth');
 const { version } = require('./package.json');
 
 process.on('unhandledRejection', (reason) => {
@@ -78,6 +80,9 @@ app.use('/api/suppliers', require('./routes/suppliers'));
 app.use('/api/stock', require('./routes/stock'));
 app.use('/api/purchases', require('./routes/purchases'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/staff', require('./routes/staff'));
+// Live updates for staff screens (new orders → kitchen bell, low-stock popups)
+app.get('/api/events', requireAuth(ROLES.STAFF), events.stream);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 
 // When the frontend has been built (npm run build), serve it with an SPA fallback
@@ -107,6 +112,7 @@ async function start() {
 function shutdown(signal) {
   logger.info('shutting down', { signal });
   const force = setTimeout(() => process.exit(1), 10000).unref();
+  events.closeAll(); // open event streams would otherwise hold server.close() until the timeout
   const close = server ? (cb) => server.close(cb) : (cb) => cb();
   close(async () => {
     await prisma.$disconnect().catch(() => {});

@@ -9,11 +9,57 @@ datasource db {
 }
 
 model User {
-  id       String @id @default(uuid())
-  username String @unique
-  password String
-  role     String // admin | cashier | chef
-  name     String
+  id           String         @id @default(uuid())
+  username     String?        @unique // null for payroll-only staff who never sign in
+  password     String?
+  role         String // admin | cashier | chef | staff (payroll only, no app access)
+  name         String
+  position     String         @default("") // job title shown in the directory, e.g. "Head chef", "Waiter"
+  categoryId   Int? // department, e.g. Kitchen, Service, Housekeeping
+  category     StaffCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  phone        String         @default("")
+  active       Boolean        @default(true) // deactivated staff cannot sign in and drop off payroll
+  baseSalary   Float          @default(0) // monthly
+  overtimeRate Float          @default(0) // per overtime hour
+  joinedAt     DateTime       @default(now())
+  createdAt    DateTime       @default(now())
+  payments     StaffPayment[]
+
+  @@index([categoryId])
+}
+
+// Department/team staff are grouped by. Managers can add their own as the team grows.
+model StaffCategory {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String   @default("")
+  color       String   @default("gray") // red | orange | amber | green | blue | purple | gray
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  staff       User[]
+}
+
+// One payout to a staff member: salary for a period plus bonus/overtime, minus deductions.
+model StaffPayment {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  period         String // YYYY-MM the payment covers
+  baseAmount     Float    @default(0)
+  bonus          Float    @default(0)
+  overtimeHours  Float    @default(0)
+  overtimeRate   Float    @default(0)
+  overtimeAmount Float    @default(0)
+  deductions     Float    @default(0)
+  netAmount      Float
+  method         String   @default("cash") // cash | bank | esewa | khalti
+  note           String   @default("")
+  paidAt         DateTime @default(now())
+  recordedBy     String   @default("")
+  createdAt      DateTime @default(now())
+
+  @@index([userId, period])
+  @@index([paidAt])
 }
 
 // Single-row table (id = 1) holding the restaurant's details and billing rules.
@@ -27,7 +73,7 @@ model Restaurant {
   taxRate           Float    @default(13)
   serviceChargeRate Float    @default(10)
   receiptFooter     String   @default("Thank you for dining with us!")
-  plan              String   @default("pro") // free | pro — gates premium features (see lib/plans.js)
+  plan              String   @default("free") // free | pro — gates premium features (see lib/plans.js)
   updatedAt         DateTime @updatedAt
 }
 
@@ -136,7 +182,9 @@ model Supplier {
 model StockItem {
   id           Int             @id @default(autoincrement())
   name         String          @unique
-  unit         String // kg, pcs, L …
+  unit         String // base unit everything is counted in: kg, pcs, L …
+  packUnit     String? // optional bulk unit it is bought in, e.g. "pack", "box"
+  unitsPerPack Float? // base units in one pack, e.g. 20 cigarettes per pack
   quantity     Float           @default(0)
   reorderLevel Float           @default(0)
   costPerUnit  Float           @default(0)
