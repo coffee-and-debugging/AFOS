@@ -281,10 +281,9 @@ payment screen (`ESEWA_ACCOUNT`, `KHALTI_ACCOUNT`).
 
 - **eSewa** works immediately using eSewa's public sandbox merchant. On eSewa's test page, log in with eSewa ID
   `9806800001` (to `…005`), password `Nepal@123`, and token/OTP `123456`.
-- **Khalti** stays off ("not available yet") until you add a sandbox key: sign up at
-  [test-admin.khalti.com](https://test-admin.khalti.com), copy the **live secret key** shown there (it's the sandbox
-  key despite the name) into `KHALTI_SECRET_KEY`, and run `npm run up`. On Khalti's test page, use Khalti ID
-  `9800000000` (to `…005`), MPIN `1111` and OTP `987654`.
+- **Khalti** also works immediately using the sandbox merchant from Khalti's developer docs. On Khalti's test page,
+  use Khalti ID `9800000000` (to `…005`), MPIN `1111` and OTP `987654`. (Optional: put your own sandbox key from
+  [test-admin.khalti.com](https://test-admin.khalti.com) in `KHALTI_SECRET_KEY`.)
 
 ### Going live (real money)
 

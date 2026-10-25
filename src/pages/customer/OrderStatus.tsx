@@ -28,10 +28,8 @@ const MESSAGE: Record<Status, { tone: string; text: string }> = {
 
 export default function OrderStatus() {
   const { orderId = '' } = useParams<{ orderId: string }>();
-  // Set by the menu page right after an order is sent, or by the payment return page
-  const navState = useLocation().state as { justPlaced?: boolean; notice?: PaymentNotice } | null;
-  const justPlaced = Boolean(navState?.justPlaced);
-  const notice = navState?.notice;
+  // Set by the payment return page with the outcome of an online payment
+  const notice = (useLocation().state as { notice?: PaymentNotice } | null)?.notice;
   const { money } = useRestaurant();
   const { data: order, error, loading, retry, setData } = usePolling(
     useCallback(() => api.orders.getById(orderId), [orderId]),
@@ -75,21 +73,6 @@ export default function OrderStatus() {
         {notice && (
           <p className={`alert alert-${notice.kind}`} role="status" style={{ marginBottom: 0 }}>{notice.message}</p>
         )}
-        {justPlaced && order.status === 'pending' && (
-          <section className="card order-sent">
-            <span className="order-sent-icon"><Icon name="check" size={28} /></span>
-            <div className="spacer">
-              <h2 className="card-title">Order sent to the kitchen!</h2>
-              <p className="subtle" style={{ margin: 0 }}>Want something else? You can keep ordering from the menu.</p>
-            </div>
-            {order.tableId && (
-              <Link to={`/table/${order.tableId}`} className="btn btn-primary btn-lg">
-                <Icon name="menu" size={18} /> Back to menu
-              </Link>
-            )}
-          </section>
-        )}
-
         <section className="card">
           <div className="card-header" style={{ marginBottom: 0 }}>
             <h2 className="card-title">Progress</h2>
@@ -160,8 +143,9 @@ export default function OrderStatus() {
 
       {order.tableId && (
         <div className="menu-bar">
-          <Link to={`/table/${order.tableId}`} className="btn btn-primary btn-lg btn-block">
-            <Icon name="menu" size={18} /> Back to menu · Order more
+          <Link to={`/table/${order.tableId}`} className="btn btn-primary btn-lg menu-bar-btn">
+            <Icon name="menu" size={18} />
+            <span>Back to menu<span className="menu-bar-extra"> · Order more</span></span>
           </Link>
         </div>
       )}

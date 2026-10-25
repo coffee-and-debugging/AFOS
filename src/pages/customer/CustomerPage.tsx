@@ -96,7 +96,7 @@ export default function CustomerPage() {
         customerNote: note,
       });
       rememberOrder(tableId, order.id);
-      navigate(`/order/${order.id}`, { state: { justPlaced: true } });
+      navigate(`/order/${order.id}`);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {

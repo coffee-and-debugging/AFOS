@@ -1042,13 +1042,25 @@ tfoot th { padding-top: var(--space-3); border-top: 2px solid var(--color-border
 .qr-brand { font-size: var(--text-xl); font-weight: 800; color: var(--color-text); }
 
 /* ============ Guest: back to menu after ordering ============ */
-.order-sent { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; border-left: 5px solid var(--color-success); animation: rise-in 240ms ease; }
-.order-sent-icon { display: grid; place-items: center; flex: none; width: 52px; height: 52px; border-radius: 50%; background: var(--color-success-bg); color: var(--color-success); }
-.order-sent .btn { flex: none; }
-.menu-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom)); background: var(--color-surface); border-top: 1px solid var(--color-border); box-shadow: 0 -4px 16px rgba(17, 24, 39, 0.06); }
-.menu-bar .btn { max-width: 760px; margin: 0 auto; }
-.guest-body.has-menu-bar { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
-@media (max-width: 600px) { .order-sent .btn { width: 100%; } }
+/* Fixed "Back to menu" bar: full width on phones, centred and capped on wider screens */
+.menu-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: flex; justify-content: center;
+  padding: var(--space-3) max(var(--space-4), env(safe-area-inset-right)) calc(var(--space-3) + env(safe-area-inset-bottom)) max(var(--space-4), env(safe-area-inset-left));
+  background: var(--color-surface); border-top: 1px solid var(--color-border);
+  box-shadow: 0 -4px 16px rgba(17, 24, 39, 0.06);
+}
+.menu-bar-btn {
+  display: flex; width: 100%; max-width: 560px; min-width: 0;
+  white-space: normal; text-align: center; line-height: 1.25;
+  padding-top: var(--space-2); padding-bottom: var(--space-2);
+}
+.menu-bar-btn svg { flex: none; }
+.guest-body.has-menu-bar { padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
+@media (max-width: 360px) {
+  .menu-bar-extra { display: none; } /* very small phones: just "Back to menu" */
+  .menu-bar-btn { min-height: 48px; font-size: var(--text-sm); }
+}
 .alert-bell .btn.has-alerts .alert-bell-count { animation: badge-pulse 1.8s ease-in-out infinite; }
 @keyframes badge-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55); } 50% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); } }
 @media (prefers-reduced-motion: reduce) { .stock-popup, .alert-bell-count { animation: none !important; } }

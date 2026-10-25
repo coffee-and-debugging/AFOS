@@ -165,6 +165,8 @@ async function startKhalti(orderId, baseUrl) {
       amount: paisa,
       purchase_order_id: attemptId,
       purchase_order_name: billName(order),
+      // Khalti's sandbox fails without customer_info; the name is all we know about a guest
+      customer_info: { name: order.tableNumber ? `Table ${order.tableNumber} guest` : 'Takeaway guest' },
     }),
   });
   if (!ok || !body.pidx || !body.payment_url) {

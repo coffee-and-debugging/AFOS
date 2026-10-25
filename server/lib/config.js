@@ -79,7 +79,8 @@ function load() {
       },
       khalti: {
         env: khaltiEnv,
-        secretKey: env.KHALTI_SECRET_KEY || '',
+        // Khalti's documented sandbox merchant is used in test mode unless you set your own
+        secretKey: env.KHALTI_SECRET_KEY || (khaltiEnv === 'test' ? 'live_secret_key_68791341fdd94846a146f0457ff7b455' : ''),
         account: env.KHALTI_ACCOUNT || '9866028826',
       },
     },
