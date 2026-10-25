@@ -54,7 +54,7 @@ export default function Orders() {
   const visible = all.filter((o) =>
     (!filter || o.status === filter) &&
     (!type || o.type === type) &&
-    (!term || billLabel(o).includes(term) || orderPlace(o).toLowerCase().includes(term) || o.customer?.name.toLowerCase().includes(term)));
+    (!term || billLabel(o).includes(term) || orderPlace(o).toLowerCase().includes(term)));
   const revenue = visible.filter((o) => o.status !== 'cancelled').reduce((s, o) => s + o.totalAmount, 0);
 
   return (
@@ -80,7 +80,7 @@ export default function Orders() {
             <option value="dine_in">Dine-in</option>
             <option value="takeaway">Takeaway</option>
           </select>
-          <input className="input input-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Bill #, table or customer" aria-label="Search orders" />
+          <input className="input input-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Bill # or table" aria-label="Search orders" />
         </div>
       </div>
 
@@ -96,7 +96,7 @@ export default function Orders() {
             <div className="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Bill</th><th>Placed</th><th>Where</th><th>Customer</th><th>Items</th><th className="num">Total</th><th>Status</th><th>Payment</th><th /></tr>
+                  <tr><th>Bill</th><th>Placed</th><th>Where</th><th>Items</th><th className="num">Total</th><th>Status</th><th>Payment</th><th /></tr>
                 </thead>
                 <tbody>
                   {visible.map((o) => (
@@ -104,7 +104,6 @@ export default function Orders() {
                       <td className="bill-no">{billLabel(o)}</td>
                       <td className="nowrap muted">{formatDateTime(o.createdAt)}</td>
                       <td className="nowrap">{orderPlace(o)}{o.source === 'qr' && <span className="subtle"> · QR</span>}</td>
-                      <td>{o.customer?.name ?? <span className="subtle">—</span>}</td>
                       <td>{o.items.reduce((s, i) => s + i.quantity, 0)}</td>
                       <td className="num">{money(o.totalAmount)}</td>
                       <td>

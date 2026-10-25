@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="AFOS.Desktop.Views.AdminWindow"
-        Title="AFOS Admin"
+        Title="Yummy Foodland — Admin"
         Height="780" Width="1280"
         MinHeight="600" MinWidth="960"
         WindowStartupLocation="CenterScreen"
@@ -15,7 +15,7 @@
             <Border DockPanel.Dock="Top" Padding="20,19,20,16"
                     BorderBrush="#26FFFFFF" BorderThickness="0,0,0,1">
                 <StackPanel HorizontalAlignment="Left" Spacing="2">
-                    <TextBlock Text="🍵 AFOS" FontSize="18" FontWeight="Bold"
+                    <TextBlock Text="Yummy Foodland" FontSize="18" FontWeight="Bold"
                                Foreground="White"/>
                     <TextBlock Text="Admin Portal" FontSize="11"
                                Foreground="#BFFFFFFF" Opacity="0.75"/>

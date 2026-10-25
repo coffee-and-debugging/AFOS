@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api } from '../../api/client';
+import { api, ApiError } from '../../api/client';
 import FoodVisual from '../../components/FoodVisual';
 import GuestHeader from '../../components/GuestHeader';
 import Icon from '../../components/Icon';
@@ -31,7 +31,6 @@ const GUEST_STATUS: Record<Order['status'], string> = {
   pending: 'Received', cooking: 'Cooking', serving: 'Ready', completed: 'Served', cancelled: 'Cancelled',
 };
 
-const loadMenu = () => Promise.all([api.menu.getAll(), api.categories.getAll()]);
 
 export default function CustomerPage() {
   const { tableId = '' } = useParams<{ tableId: string }>();
@@ -39,6 +38,11 @@ export default function CustomerPage() {
   const { money, restaurant } = useRestaurant();
   const toast = useToast();
 
+  // The QR code carries the table's random id; ask the API which table number that is
+  const loadMenu = useCallback(
+    () => Promise.all([api.menu.getAll(), api.categories.getAll(), api.tables.getPublic(tableId)]),
+    [tableId],
+  );
   const menu = usePolling(loadMenu, 8000);
   const loadTracked = useCallback(async () => {
     const results = await Promise.allSettled(savedOrderIds(tableId).map((id) => api.orders.getById(id)));
@@ -55,11 +59,16 @@ export default function CustomerPage() {
   const [showCart, setShowCart] = useState(false);
   const [placing, setPlacing] = useState(false);
 
-  const tableNumber = tableId.replace('table-', '');
-  if (menu.loading && !menu.data) return <><GuestHeader chip={`Table ${tableNumber}`} /><LoadingState label="Loading the menu…" /></>;
-  if (!menu.data) return <><GuestHeader chip={`Table ${tableNumber}`} /><ErrorState error={menu.error} onRetry={menu.retry} /></>;
+  if (menu.loading && !menu.data) return <><GuestHeader /><LoadingState label="Loading the menu…" /></>;
+  if (!menu.data) {
+    if (menu.error instanceof ApiError && menu.error.status === 404) {
+      return <><GuestHeader /><EmptyState icon="qr" title="This QR code isn't valid any more" text={menu.error.message} /></>;
+    }
+    return <><GuestHeader /><ErrorState error={menu.error} onRetry={menu.retry} /></>;
+  }
 
-  const [items, categories] = menu.data;
+  const [items, categories, table] = menu.data;
+  const tableNumber = table.number;
   // Delta-based so rapid taps are never lost to a stale render
   const bump = (id: number, delta: number) =>
     setCart((prev) => {
@@ -87,7 +96,7 @@ export default function CustomerPage() {
         customerNote: note,
       });
       rememberOrder(tableId, order.id);
-      navigate(`/order/${order.id}`);
+      navigate(`/order/${order.id}`, { state: { justPlaced: true } });
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -219,7 +228,7 @@ function ItemCard({ item, qty, price, onQty }: { item: MenuItem; qty: number; pr
     <article className={`item-card${item.available ? '' : ' is-unavailable'}`}>
       <div className="item-media">
         <FoodVisual imageUrl={item.imageUrl} category={item.category} />
-        {!item.available && <span className="item-soldout">Sold out</span>}
+        {!item.available && <span className="item-soldout">Not Available</span>}
       </div>
       <div className="item-body">
         <h3 className="item-name">{item.name}</h3>

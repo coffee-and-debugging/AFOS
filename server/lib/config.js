@@ -45,9 +45,15 @@ function load() {
     problems.push('LOG_LEVEL must be one of debug, info, warn, error');
   }
 
+  for (const name of ['ESEWA_ENV', 'KHALTI_ENV']) {
+    if (env[name] && !['test', 'live'].includes(env[name])) problems.push(`${name} must be test or live`);
+  }
+
   if (problems.length) fail(problems);
 
   const isProd = env.NODE_ENV === 'production';
+  const esewaEnv = env.ESEWA_ENV === 'live' ? 'live' : 'test';
+  const khaltiEnv = env.KHALTI_ENV === 'live' ? 'live' : 'test';
   return {
     isProd,
     nodeEnv: env.NODE_ENV || 'development',
@@ -61,6 +67,22 @@ function load() {
       .filter(Boolean),
     uploadsDir: env.UPLOADS_DIR || path.join(__dirname, '../uploads'),
     trustProxy: env.TRUST_PROXY === 'true',
+    payments: {
+      // Where guests return after paying. Empty = the address the guest's browser is using.
+      publicUrl: (env.PUBLIC_APP_URL || '').trim().replace(/\/+$/, ''),
+      esewa: {
+        env: esewaEnv,
+        // eSewa's published sandbox merchant is used in test mode unless you set your own
+        productCode: env.ESEWA_PRODUCT_CODE || (esewaEnv === 'test' ? 'EPAYTEST' : ''),
+        secretKey: env.ESEWA_SECRET_KEY || (esewaEnv === 'test' ? '8gBm/:&EnhH.1/q' : ''),
+        account: env.ESEWA_ACCOUNT || '9840040733',
+      },
+      khalti: {
+        env: khaltiEnv,
+        secretKey: env.KHALTI_SECRET_KEY || '',
+        account: env.KHALTI_ACCOUNT || '9866028826',
+      },
+    },
   };
 }
 

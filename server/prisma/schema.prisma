@@ -73,6 +73,7 @@ model Restaurant {
   taxRate           Float    @default(13)
   serviceChargeRate Float    @default(10)
   receiptFooter     String   @default("Thank you for dining with us!")
+  qrBaseUrl         String   @default("") // address printed in table QR codes, e.g. http://192.168.100.20:5173; empty = auto
   plan              String   @default("free") // free | pro — gates premium features (see lib/plans.js)
   updatedAt         DateTime @updatedAt
 }
@@ -111,7 +112,7 @@ model RecipeItem {
 }
 
 model Table {
-  id     String  @id
+  id     String  @id // random permanent token (lib/ids.js), part of the table's QR URL
   number Int     @unique
   orders Order[]
 }
@@ -141,18 +142,38 @@ model Order {
   status        String      @default("pending") // pending | cooking | serving | completed | cancelled
   paymentStatus String      @default("unpaid") // unpaid | pending_counter | paid
   paymentMethod String? // cash | card | esewa | khalti | counter
+  paymentRef    String? // gateway transaction id for eSewa/Khalti payments
   subtotal      Float       @default(0)
   discount      Float       @default(0)
   serviceCharge Float       @default(0)
   tax           Float       @default(0)
   totalAmount   Float
   paidAt        DateTime?
+  payments      PaymentAttempt[]
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
   @@index([status])
   @@index([createdAt])
   @@index([customerId])
+}
+
+// One online checkout started by a guest. The order is only marked paid after the
+// gateway itself confirms the transaction (server-to-server), never on the browser's word.
+model PaymentAttempt {
+  id           String   @id @default(uuid())
+  orderId      String
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  gateway      String // esewa | khalti
+  reference    String   @unique // eSewa transaction_uuid / Khalti pidx
+  amount       Float
+  status       String   @default("initiated") // initiated | completed | failed
+  gatewayTxnId String? // eSewa ref_id / Khalti transaction_id
+  response     Json? // last answer from the gateway, for reconciliation
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([orderId])
 }
 
 model OrderItem {

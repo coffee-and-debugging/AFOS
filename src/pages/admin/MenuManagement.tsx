@@ -118,7 +118,7 @@ export default function MenuManagement() {
                             onClick={() => toggleAvailable(item)}
                             aria-pressed={item.available}
                           >
-                            {item.available ? 'Available' : 'Sold out'}
+                            {item.available ? 'Available' : 'Not Available'}
                           </button>
                         </td>
                         <td>

@@ -31,6 +31,8 @@ app.use(helmet({
       'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       'font-src': ["'self'", 'https://fonts.gstatic.com'],
       'img-src': ["'self'", 'data:', 'blob:'],
+      // The eSewa checkout is a form POST to eSewa's site
+      'form-action': ["'self'", 'https://rc-epay.esewa.com.np', 'https://epay.esewa.com.np'],
     },
   },
   crossOriginEmbedderPolicy: false,
@@ -75,12 +77,12 @@ app.use('/api/categories', require('./routes/categories'));
 app.use('/api/menu', require('./routes/menu'));
 app.use('/api/tables', require('./routes/tables'));
 app.use('/api/orders', require('./routes/orders'));
-app.use('/api/customers', require('./routes/customers'));
 app.use('/api/suppliers', require('./routes/suppliers'));
 app.use('/api/stock', require('./routes/stock'));
 app.use('/api/purchases', require('./routes/purchases'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/staff', require('./routes/staff'));
+app.use('/api/payments', require('./routes/payments'));
 // Live updates for staff screens (new orders → kitchen bell, low-stock popups)
 app.get('/api/events', requireAuth(ROLES.STAFF), events.stream);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));

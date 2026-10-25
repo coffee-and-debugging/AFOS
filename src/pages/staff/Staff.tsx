@@ -14,7 +14,7 @@ import type { CategoryColor, PayrollMethod, StaffCategory, StaffMember, StaffPay
 const ROLE_LABEL: Record<StaffRole, string> = { admin: 'Manager', cashier: 'Cashier', chef: 'Kitchen', staff: 'Staff' };
 const ROLE_HINT: Record<StaffRole, string> = {
   admin: 'Full access: menu, stock, reports, staff and payroll',
-  cashier: 'POS, billing, orders, tables and customers',
+  cashier: 'POS, billing, orders and tables',
   chef: 'Kitchen display and stock',
   staff: 'Payroll only — cannot sign in (waiters, cleaners, helpers…)',
 };
@@ -26,6 +26,13 @@ const monthLabel = (period: string) => {
   return new Date(y, m - 1, 1).toLocaleDateString([], { month: 'long', year: 'numeric' });
 };
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+// New cashier/kitchen accounts start in the matching department when it exists
+const ROLE_CATEGORY: Partial<Record<StaffRole, string>> = { admin: 'management', cashier: 'front of house', chef: 'kitchen' };
+function defaultCategoryFor(role: StaffRole | undefined, categories: StaffCategory[]) {
+  const name = role && ROLE_CATEGORY[role];
+  return name ? categories.find((c) => c.name.toLowerCase() === name)?.id : undefined;
+}
 
 const COLORS: CategoryColor[] = ['red', 'orange', 'amber', 'green', 'blue', 'purple', 'gray'];
 type CategoryFilter = 'all' | 'none' | number;
@@ -43,7 +50,8 @@ export default function Staff() {
   const [showInactive, setShowInactive] = useState(false);
   const [category, setCategory] = useState<CategoryFilter>('all');
   const [managing, setManaging] = useState(false);
-  const [editing, setEditing] = useState<StaffMember | 'new' | null>(null);
+  // 'new' opens a blank form; a role opens it ready to create that kind of sign-in account
+  const [editing, setEditing] = useState<StaffMember | 'new' | StaffRole | null>(null);
   const [paying, setPaying] = useState<StaffMember | null>(null);
   const [history, setHistory] = useState<StaffMember | null>(null);
 
@@ -97,6 +105,8 @@ export default function Staff() {
         subtitle="Team members, their access, salaries and every payout"
         actions={<>
           <button className="btn btn-secondary" onClick={() => setManaging(true)}><Icon name="settings" size={16} /> Categories</button>
+          <button className="btn btn-secondary" onClick={() => setEditing('cashier')}><Icon name="pos" size={16} /> Add cashier</button>
+          <button className="btn btn-secondary" onClick={() => setEditing('chef')}><Icon name="kitchen" size={16} /> Add kitchen staff</button>
           <button className="btn btn-primary" onClick={() => setEditing('new')}><Icon name="plus" size={16} /> Add staff</button>
         </>}
       />
@@ -204,7 +214,8 @@ export default function Staff() {
 
       {editing && (
         <StaffForm
-          member={editing === 'new' ? null : editing}
+          member={typeof editing === 'string' ? null : editing}
+          initialRole={typeof editing === 'string' && editing !== 'new' ? editing : undefined}
           categories={categories}
           defaultCategoryId={typeof category === 'number' ? category : null}
           onClose={() => setEditing(null)}
@@ -287,8 +298,9 @@ function PaymentsTable({ payments, onChanged, showStaff }: { payments: StaffPaym
   );
 }
 
-function StaffForm({ member, categories: initialCategories, defaultCategoryId, onClose, onSaved }: {
+function StaffForm({ member, initialRole, categories: initialCategories, defaultCategoryId, onClose, onSaved }: {
   member: StaffMember | null;
+  initialRole?: StaffRole;
   categories: StaffCategory[];
   defaultCategoryId: number | null;
   onClose: () => void;
@@ -299,8 +311,10 @@ function StaffForm({ member, categories: initialCategories, defaultCategoryId, o
   const [newCategory, setNewCategory] = useState<string | null>(null); // non-null while typing a new one
   const [form, setForm] = useState({
     name: member?.name ?? '',
-    categoryId: member ? (member.categoryId == null ? '' : String(member.categoryId)) : (defaultCategoryId == null ? '' : String(defaultCategoryId)),
-    role: (member?.role ?? 'cashier') as StaffRole,
+    categoryId: member
+      ? (member.categoryId == null ? '' : String(member.categoryId))
+      : String(defaultCategoryId ?? defaultCategoryFor(initialRole, initialCategories) ?? ''),
+    role: (member?.role ?? initialRole ?? 'cashier') as StaffRole,
     position: member?.position ?? '',
     phone: member?.phone ?? '',
     username: member?.username ?? '',
@@ -360,7 +374,7 @@ function StaffForm({ member, categories: initialCategories, defaultCategoryId, o
 
   return (
     <Modal
-      title={member ? `Edit ${member.name}` : 'Add staff member'}
+      title={member ? `Edit ${member.name}` : initialRole === 'cashier' ? 'New cashier account' : initialRole === 'chef' ? 'New kitchen account' : 'Add staff member'}
       onClose={onClose}
       wide
       footer={<>

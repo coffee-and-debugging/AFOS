@@ -13,6 +13,20 @@ router.get('/', asyncHandler(async (req, res) => {
   res.json(settings);
 }));
 
+/** "http://192.168.100.20:5173/" → "http://192.168.100.20:5173"; '' stays ''. Throws on anything else. */
+function normalizeBaseUrl(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  let url;
+  try {
+    url = new URL(/^https?:\/\//i.test(raw) ? raw : `http://${raw}`);
+  } catch {
+    throw new HttpError(400, 'Guest ordering address must look like http://192.168.100.20:5173');
+  }
+  if (!['http:', 'https:'].includes(url.protocol)) throw new HttpError(400, 'Guest ordering address must start with http:// or https://');
+  return url.origin;
+}
+
 function rate(value, name) {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0 || n > 100) throw new HttpError(400, `${name} must be between 0 and 100`);
@@ -33,8 +47,10 @@ router.put('/', requireAuth(ROLES.ADMIN), asyncHandler(async (req, res) => {
   for (const key of TEXT_FIELDS) if (body[key] !== undefined) data[key] = String(body[key]).trim();
   if (body.taxRate !== undefined) data.taxRate = rate(body.taxRate, 'Tax rate');
   if (body.serviceChargeRate !== undefined) data.serviceChargeRate = rate(body.serviceChargeRate, 'Service charge');
+  if (body.qrBaseUrl !== undefined) data.qrBaseUrl = normalizeBaseUrl(body.qrBaseUrl);
 
   res.json(await prisma.restaurant.update({ where: { id: SETTINGS_ID }, data }));
 }));
 
 module.exports = router;
+module.exports.normalizeBaseUrl = normalizeBaseUrl;

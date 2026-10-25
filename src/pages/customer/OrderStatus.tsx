@@ -1,15 +1,15 @@
-import { useCallback, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { api, ApiError } from '../../api/client';
 import GuestHeader from '../../components/GuestHeader';
 import Icon, { type IconName } from '../../components/Icon';
 import Modal from '../../components/Modal';
-import PaymentGateway from '../../components/PaymentGateway';
-import { GATEWAYS, type Gateway } from '../../lib/gateways';
+import OnlinePayment from '../../components/OnlinePayment';
 import { EmptyState, ErrorState, LoadingState } from '../../components/States';
-import { usePolling, useRestaurant, useToast } from '../../hooks';
+import { usePolling, useRestaurant } from '../../hooks';
 import { billLabel, formatTime, orderPlace, PAYMENT_LABEL } from '../../lib/format';
 import type { OrderStatus as Status } from '../../types';
+import type { PaymentNotice } from './PaymentReturn';
 
 const STEPS: { status: Status; label: string; icon: IconName }[] = [
   { status: 'pending', label: 'Received', icon: 'check' },
@@ -28,13 +28,25 @@ const MESSAGE: Record<Status, { tone: string; text: string }> = {
 
 export default function OrderStatus() {
   const { orderId = '' } = useParams<{ orderId: string }>();
+  // Set by the menu page right after an order is sent, or by the payment return page
+  const navState = useLocation().state as { justPlaced?: boolean; notice?: PaymentNotice } | null;
+  const justPlaced = Boolean(navState?.justPlaced);
+  const notice = navState?.notice;
   const { money } = useRestaurant();
-  const toast = useToast();
   const { data: order, error, loading, retry, setData } = usePolling(
     useCallback(() => api.orders.getById(orderId), [orderId]),
     5000,
   );
-  const [payWith, setPayWith] = useState<Gateway | 'choose' | null>(null);
+  const [paying, setPaying] = useState(false);
+
+  // If the guest paid but never made it back from eSewa/Khalti, ask the gateway once on open
+  const rechecked = useRef(false);
+  const unpaid = order ? order.paymentStatus !== 'paid' && order.status !== 'cancelled' : false;
+  useEffect(() => {
+    if (!unpaid || rechecked.current || notice) return;
+    rechecked.current = true;
+    api.payments.check(orderId).then((r) => { if (r.paid) setData(() => r.order); }, () => {});
+  }, [unpaid, orderId, notice, setData]);
 
   if (loading && !order) return <><GuestHeader title="Your order" /><LoadingState /></>;
   if (!order) {
@@ -45,16 +57,6 @@ export default function OrderStatus() {
   }
 
   const current = STEPS.findIndex((s) => s.status === order.status);
-
-  async function paid(method: Gateway) {
-    try {
-      const updated = await api.orders.processPayment(order!.id, method);
-      setData(() => updated);
-      setPayWith(null);
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
-  }
 
   return (
     <div className="guest">
@@ -69,7 +71,25 @@ export default function OrderStatus() {
         )}
       />
 
-      <main className="guest-body stack">
+      <main className={`guest-body stack${order.tableId ? ' has-menu-bar' : ''}`}>
+        {notice && (
+          <p className={`alert alert-${notice.kind}`} role="status" style={{ marginBottom: 0 }}>{notice.message}</p>
+        )}
+        {justPlaced && order.status === 'pending' && (
+          <section className="card order-sent">
+            <span className="order-sent-icon"><Icon name="check" size={28} /></span>
+            <div className="spacer">
+              <h2 className="card-title">Order sent to the kitchen!</h2>
+              <p className="subtle" style={{ margin: 0 }}>Want something else? You can keep ordering from the menu.</p>
+            </div>
+            {order.tableId && (
+              <Link to={`/table/${order.tableId}`} className="btn btn-primary btn-lg">
+                <Icon name="menu" size={18} /> Back to menu
+              </Link>
+            )}
+          </section>
+        )}
+
         <section className="card">
           <div className="card-header" style={{ marginBottom: 0 }}>
             <h2 className="card-title">Progress</h2>
@@ -121,15 +141,16 @@ export default function OrderStatus() {
           {order.paymentStatus === 'paid' && (
             <p className="alert alert-success" style={{ marginBottom: 0 }}>
               {money(order.totalAmount)} received via {order.paymentMethod ? PAYMENT_LABEL[order.paymentMethod] : 'counter'}. Thank you!
+              {order.paymentRef && <><br /><span className="subtle">Transaction ref: {order.paymentRef}</span></>}
             </p>
           )}
           {order.paymentStatus === 'pending_counter' && (
-            <p className="alert alert-warning" style={{ marginBottom: 0 }}>Please pay {money(order.totalAmount)} at the counter.</p>
+            <p className="alert alert-warning">Please pay {money(order.totalAmount)} at the counter, or pay online below.</p>
           )}
-          {order.paymentStatus === 'unpaid' && (
+          {order.paymentStatus !== 'paid' && (
             <>
-              <p className="muted" style={{ marginBottom: 'var(--space-4)' }}>Pay at the counter when you leave, or pay now online.</p>
-              <button className="btn btn-primary btn-block btn-lg" onClick={() => setPayWith('choose')}>
+              {order.paymentStatus === 'unpaid' && <p className="muted" style={{ marginBottom: 'var(--space-4)' }}>Pay at the counter when you leave, or pay now with eSewa or Khalti.</p>}
+              <button className="btn btn-primary btn-block btn-lg" onClick={() => setPaying(true)}>
                 Pay online · {money(order.totalAmount)}
               </button>
             </>
@@ -137,25 +158,17 @@ export default function OrderStatus() {
         </section>}
       </main>
 
-      {payWith && (
-        <Modal title={payWith === 'choose' ? 'Pay online' : `Pay with ${GATEWAYS[payWith].name}`} onClose={() => setPayWith(null)}>
-          {payWith === 'choose' ? (
-            <div className="stack" style={{ gap: 'var(--space-3)' }}>
-              {(Object.keys(GATEWAYS) as Gateway[]).map((g) => (
-                <button key={g} className="pay-option" style={{ '--gw': GATEWAYS[g].color } as React.CSSProperties} onClick={() => setPayWith(g)}>
-                  <strong>{GATEWAYS[g].name}</strong>
-                  <span className="subtle">Pay {money(order.totalAmount)} with {GATEWAYS[g].name}</span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <PaymentGateway
-              gateway={payWith}
-              amount={money(order.totalAmount)}
-              onSuccess={() => paid(payWith)}
-              onCancel={() => setPayWith('choose')}
-            />
-          )}
+      {order.tableId && (
+        <div className="menu-bar">
+          <Link to={`/table/${order.tableId}`} className="btn btn-primary btn-lg btn-block">
+            <Icon name="menu" size={18} /> Back to menu · Order more
+          </Link>
+        </div>
+      )}
+
+      {paying && (
+        <Modal title="Pay online" onClose={() => setPaying(false)}>
+          <OnlinePayment order={order} />
         </Modal>
       )}
     </div>

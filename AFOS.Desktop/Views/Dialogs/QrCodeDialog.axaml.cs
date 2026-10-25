@@ -1,8 +1,11 @@
+using System;
 using System.IO;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
+using AFOS.Desktop.Database;
+using AFOS.Desktop.Helpers;
 using AFOS.Desktop.Models;
 using QRCoder;
 
@@ -22,9 +25,13 @@ public partial class QrCodeDialog : Window
         GenerateQr();
     }
 
-    private void GenerateQr()
+    private async void GenerateQr()
     {
-        var url = $"http://localhost:5173/table/{_table.Id}";
+        // Guests' phones can't open localhost: use the configured or detected network address
+        string configured;
+        try { configured = await DatabaseService.Instance.GetQrBaseUrlAsync(); }
+        catch (Exception) { configured = ""; }
+        var url = $"{NetworkHelper.GuestBaseUrl(configured)}/table/{_table.Id}/";
         TxtUrl.Text = url;
 
         using var qrGen   = new QRCodeGenerator();

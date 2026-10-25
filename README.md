@@ -1,7 +1,8 @@
-# AFOS — Restaurant OS
+# Yummy Foodland — Restaurant system
 
-Run a restaurant from one app: point of sale and billing, a live kitchen display with an order bell, table QR
-ordering, stock that deducts down to single loose units, purchases, staff and payroll, customers and reports.
+Run the restaurant from one app: point of sale and billing, a live kitchen display with an order bell, table QR
+ordering with **eSewa and Khalti payments**, stock that deducts down to single loose units, purchases, staff and
+payroll, and reports. (The codebase is called AFOS.)
 
 It runs on one computer in the restaurant (the **server PC**). Every other device on the same Wi-Fi, such as the
 cashier's laptop, a kitchen tablet, waiters' phones and guests scanning table QR codes, uses it through a browser.
@@ -12,6 +13,7 @@ Nothing needs to be installed on those devices.
 - [Everyday use](#everyday-use)
 - [Use it on other devices](#use-it-on-other-devices)
 - [Set it up on another computer](#set-it-up-on-another-computer)
+- [Online payments (eSewa & Khalti)](#online-payments-esewa--khalti)
 - [Commands](#commands) · [Configuration](#configuration) · [Database](#database) · [Live updates](#live-updates)
 - [Reliability](#reliability) · [Backups & restore](#backups--restore) · [Troubleshooting](#troubleshooting)
 - [Hosting it online](#hosting-it-online)
@@ -25,13 +27,12 @@ Nothing needs to be installed on those devices.
 | **Dashboard** | Today's sales, open bills, occupied tables, kitchen load, 7-day chart, top sellers, low stock. Updates the moment an order is placed | admin, cashier |
 | **Menu** | Items, photos, categories, availability, and per-item **recipes** (stock used per serving) | admin |
 | **Tables & QR** | Live floor plan with the open bill per table; take orders, settle bills, print table QR codes | admin, cashier (QR, add and remove tables: admin only) |
-| **POS / Billing** | Dine-in or takeaway, customer lookup, discount, service charge and VAT, cash/card/eSewa/Khalti, change due, printable receipts | admin, cashier |
+| **POS / Billing** | Dine-in or takeaway, discount, service charge and VAT, cash/card/eSewa/Khalti, change due, printable receipts | admin, cashier |
 | **Purchases** | Record supplier deliveries by unit **or by pack** (adds stock, updates cost), paid/unpaid, void; manage suppliers | admin |
 | **Stock** | Quantities on hand (shown in packs and loose units), reorder levels, stock value, adjustments and wastage, movement history | admin; chef can view and adjust |
-| **Customers** | Customers with visits and lifetime spend, order history per guest | admin, cashier (Pro plan) |
 | **Orders** | Every order by date, status and type; change status, cancel (returns stock), reprint bills | admin, cashier |
 | **Kitchen** | Ticket board. New orders appear **instantly** with a **bell sound and a popup**; start cooking → ready → served | everyone |
-| **Staff & Payroll** | Staff directory, roles and sign-in access, **departments/categories**, deactivation, salary, bonus, overtime, deductions, payment history and CSV export | admin |
+| **Staff & Payroll** | **Create Cashier and Kitchen accounts**, staff directory, departments/categories, deactivation, salary, bonus, overtime, deductions, payment history and CSV export | admin |
 | **Reports** | Net/gross sales, discounts, service charge, VAT, cost of goods, gross profit, sales by day/category/payment/hour, top items; CSV and print | admin |
 
 **Low-stock alerts.** After every sale, adjustment or voided purchase the stock levels are checked. When an item drops
@@ -49,8 +50,9 @@ reorder level, cost, recipes and history in one step.
 **How the bill is calculated.** Subtotal − discount, + service charge (dine-in only), + VAT on that amount. Rates are set
 in **Settings**. Selling an item deducts its recipe from stock and cancelling the order puts it back.
 
-**Plans.** Premium features (currently **Customers**) need the `pro` plan. New restaurants start on `free`; switch with
-`npm run plan -- pro`.
+**Guest ordering.** Guests scan the table QR code, order, and land on a tracking page with a **Back to menu** button
+to order more. They can pay there with **eSewa or Khalti**, or at the counter. Items switched off in **Menu** show as
+**Not Available**.
 
 | Part | Tech | Folder |
 |---|---|---|
@@ -97,8 +99,11 @@ The first start takes a few minutes while Docker builds the API. When it's done,
 | `cashier` (front of house) | POS / Billing | `SEED_CASHIER_PASSWORD` |
 | `chef` (kitchen) | Kitchen | `SEED_CHEF_PASSWORD` |
 
-The seed passwords only apply the first time an account is created. After that, add and manage people in
-**Staff & Payroll**: give each person their own account, or make them payroll-only staff (waiters, cleaners) who never sign in.
+The seed passwords only apply the first time an account is created. After that, the admin creates everyone else's
+account in **Staff & Payroll**:
+- **Add cashier** creates a sign-in for the POS / billing screens.
+- **Add kitchen staff** creates a sign-in for the kitchen display and stock.
+- **Add staff** covers any other role, including payroll-only staff (waiters, cleaners) who never sign in.
 
 A brand-new database comes with a demo restaurant: 17 menu items with recipes, 15 stock items, 3 suppliers, 8 tables
 and 5 staff departments. It never overwrites an existing database. `npm run db:demo` adds the demo menu to an
@@ -166,11 +171,27 @@ Tips:
 - **Add to home screen:** in Chrome or Safari, use *Add to Home screen* so staff can open AFOS like an app.
 - Each device signs in separately and stays signed in for 12 hours.
 
-### 4. Print table QR codes from the network address
+### 4. Print the table QR codes
 
-QR codes point at the address the admin's browser is using. Open **Tables & QR** at
-`http://192.168.1.25:5173/tables`, **not** `localhost`, before printing. Otherwise the codes point at `localhost` and
-won't work on guests' phones. If the server PC's address ever changes, reprint them.
+In **Tables & QR**, each table's QR code opens an address like:
+
+```
+http://192.168.1.25:5173/table/k7m2x9qa4fpe/
+```
+
+- **The address** is the server PC's network address, even when you're using AFOS on the PC itself at `localhost`.
+  AFOS detects the Wi-Fi/Ethernet address and skips virtual adapters (WSL, Docker, VMware). The QR window says which
+  address it used.
+- **The table code** (`k7m2x9qa4fpe`) is random and permanent for that table, so guests can't open another table's
+  menu by changing a number in the address.
+- **Automatic (default):** the address follows this PC's **Wi-Fi** IPv4 address (the "Wireless LAN adapter Wi-Fi"
+  entry in `ipconfig`) and is re-detected while the system runs.
+- **Manual:** in **Settings → Table QR codes**, choose **Manual** and type an address (e.g. a fixed IP, or your website
+  when hosted online). It's kept exactly as saved and never changed automatically. Settings shows every table's link
+  updating as you type.
+
+Reprint the QR codes after updating from an older version (codes like `/table/table-1` no longer work), and whenever
+the server PC's address changes.
 
 ### 5. Keep the address from changing
 
@@ -243,6 +264,58 @@ Stop the Docker API first (`docker compose stop api`), because both use port 300
 
 ---
 
+## Online payments (eSewa & Khalti)
+
+Guests pay from their order page: **Pay online → Pay with eSewa / Khalti**. They are sent to the official eSewa or
+Khalti page, log in and pay there (the app never sees their PIN), and come back to their order. The server then asks
+eSewa/Khalti directly whether the money arrived before marking the bill paid. After that everything works as it does for
+a counter payment: the bill shows **Paid**, POS and Tables treat it as settled, every screen updates instantly, and the
+receipt shows the method and transaction reference.
+
+**Where the money goes.** Payments go to the **merchant account** that owns the keys in `.env`. They can't be sent to a
+wallet number by typing it in. To receive money in **eSewa 9840040733** and **Khalti 9866028826**, register those
+wallets as merchant accounts and put the keys you're given in `.env`. The numbers are also shown to guests on the
+payment screen (`ESEWA_ACCOUNT`, `KHALTI_ACCOUNT`).
+
+### Test mode (default, no real money)
+
+- **eSewa** works immediately using eSewa's public sandbox merchant. On eSewa's test page, log in with eSewa ID
+  `9806800001` (to `…005`), password `Nepal@123`, and token/OTP `123456`.
+- **Khalti** stays off ("not available yet") until you add a sandbox key: sign up at
+  [test-admin.khalti.com](https://test-admin.khalti.com), copy the **live secret key** shown there (it's the sandbox
+  key despite the name) into `KHALTI_SECRET_KEY`, and run `npm run up`. On Khalti's test page, use Khalti ID
+  `9800000000` (to `…005`), MPIN `1111` and OTP `987654`.
+
+### Going live (real money)
+
+1. **eSewa:** apply to eSewa for a merchant (ePay) account linked to 9840040733. They give you a **product
+   code** (merchant code) and a **secret key**.
+2. **Khalti:** sign up as a merchant at [admin.khalti.com](https://admin.khalti.com) with 9866028826 and complete KYC.
+   Copy your **live secret key**.
+3. In `.env`:
+   ```
+   ESEWA_ENV=live
+   ESEWA_PRODUCT_CODE=<your eSewa product code>
+   ESEWA_SECRET_KEY=<your eSewa secret key>
+   KHALTI_ENV=live
+   KHALTI_SECRET_KEY=<your Khalti live secret key>
+   ```
+4. Run `npm run up`. The "Test mode" badge disappears from the payment screen.
+
+Keep these keys private. They stay on the server and are never sent to browsers. If a key contains `$`, write it
+as `$$` in `.env`.
+
+**Notes**
+- Guests return to the address they ordered from (e.g. `http://192.168.1.25:5173`). When the site is hosted online,
+  set `PUBLIC_APP_URL` to its public address.
+- If a guest pays but closes the browser before returning, the payment is still picked up the next time the order page
+  opens: it re-checks unfinished payments with eSewa/Khalti.
+- Khalti doesn't accept payments under Rs. 10.
+- The eSewa / Khalti buttons in **POS / Billing** are for recording money the guest sent at the counter (e.g. by
+  scanning your wallet QR). They don't open a gateway.
+
+---
+
 ## Commands
 
 | Command | What it does |
@@ -256,7 +329,6 @@ Stop the Docker API first (`docker compose stop api`), because both use port 300
 | `npm run lint` | Check web and API code |
 | `npm run db:migrate` / `db:seed` / `db:setup` | Apply migrations / seed / both, against `DATABASE_URL` |
 | `npm run db:demo` | Add the demo restaurant to an existing database. Safe to re-run |
-| `npm run plan -- free\|pro` | Show or change the subscription plan |
 
 ---
 
@@ -278,7 +350,11 @@ API, Prisma and the web app. The API checks it on startup and lists anything mis
 | `SEED_ADMIN_PASSWORD` / `SEED_CASHIER_PASSWORD` / `SEED_CHEF_PASSWORD` | ✔ in production | only used when the account doesn't exist yet |
 | `BACKUP_RETENTION_DAYS` | – | default 14 |
 | `VITE_API_URL` | – | leave **empty** on a local network. Only set it when hosting the web app separately |
-| `VITE_SALES_EMAIL` / `VITE_UPGRADE_URL` | – | links on the "Feature locked" page |
+| `ESEWA_ENV` / `KHALTI_ENV` | – | `test` (default, sandbox) or `live` |
+| `ESEWA_PRODUCT_CODE` / `ESEWA_SECRET_KEY` | ✔ for live eSewa | empty in test mode = eSewa's public sandbox merchant |
+| `KHALTI_SECRET_KEY` | ✔ for Khalti | Khalti is off until it's set |
+| `ESEWA_ACCOUNT` / `KHALTI_ACCOUNT` | – | wallet numbers shown to guests (9840040733 / 9866028826) |
+| `PUBLIC_APP_URL` | – | where guests return after paying; empty = the address they ordered from |
 
 Only `VITE_*` values are sent to browsers, so never put secrets in them.
 
@@ -289,8 +365,10 @@ Only `VITE_*` values are sent to browsers, so never put secrets in them.
 **PostgreSQL** through **Prisma**.
 
 Tables: `User` (accounts and staff profiles), `StaffCategory` (departments), `StaffPayment` (payroll), `Restaurant`
-(settings, one row), `Category`, `MenuItem`, `RecipeItem`, `Table`, `Customer`, `Order`, `OrderItem`, `Supplier`,
-`Purchase`, `PurchaseItem`, `StockItem` (with optional pack size), `StockMovement` (every stock change and why).
+(settings, one row), `Category`, `MenuItem`, `RecipeItem`, `Table`, `Order`, `OrderItem`, `PaymentAttempt` (every
+eSewa/Khalti checkout and the gateway's answer), `Supplier`, `Purchase`, `PurchaseItem`, `StockItem` (with optional
+pack size), `StockMovement` (every stock change and why). The old `Customer` table is kept so existing data isn't lost,
+but the app no longer uses it.
 
 - **Migrations** are in `server/prisma/migrations/`. Docker applies them automatically every time the API starts
   (`server/docker-entrypoint.sh`); each runs only once.
@@ -371,12 +449,17 @@ For a plain `.sql` file, copy it in the same way and run `psql -U afos -d afos -
 | `port is already allocated` (5433 / 3001) | Another program uses the port. Change `POSTGRES_PORT` / `API_PORT` in `.env` or stop it |
 | "We can't reach the server" | `docker compose ps`. If `api` isn't `healthy`, check `npm run logs` |
 | **Another device can't open the site** | Same Wi-Fi? Using the PC's Wi-Fi IPv4 address (not `localhost` or `172.x`)? Is `npm run dev` running? Is the network set to **Private** and the firewall rule added ([see above](#2-allow-it-through-the-windows-firewall-once))? |
-| **Guests' QR codes don't open** | They were printed from `localhost` or an old IP. Reprint from `http://<server-IP>:5173/tables` |
+| **Guests' QR codes don't open** | The phone must be on the restaurant Wi-Fi. If the PC's address changed, or the codes are old `/table/table-1` ones, reprint them from **Tables & QR** |
+| QR code shows the wrong address (e.g. `172.x` or `localhost`) | Set **Settings → Table QR codes → Guest ordering address** to the PC's Wi-Fi address (shown by `ipconfig`), then reprint |
+| Guest sees "This QR code isn't valid any more" | The table was removed, or the code predates the random table codes. Reprint it from **Tables & QR** |
 | **No bell in the kitchen** | Tap the yellow "enable the order bell" bar once after loading; check that the bell button reads "Bell on" and the volume is up |
 | No low-stock popup | Popups appear only when an item *crosses* its reorder level, and only for admin and cashier. Check the item's reorder level in **Stock**. The top-bar bell lists everything already low |
 | Stock didn't change after a sale | The menu item has no recipe. Add one in **Menu → Edit item** |
 | "Use Convert units to change …" when editing stock | Changing the unit of an item with history would misread its quantities. Use **Convert to loose units** |
 | Stock shows a negative quantity | More was sold than bought. Record the purchase or make an adjustment |
+| **"eSewa/Khalti isn't available yet"** on the payment screen | Khalti needs `KHALTI_SECRET_KEY`; live eSewa needs `ESEWA_PRODUCT_CODE` and `ESEWA_SECRET_KEY`. Set them in `.env`, then `npm run up` |
+| Guest paid but the bill still shows unpaid | Ask them to reopen their order page: it re-checks the payment with eSewa/Khalti. `npm run logs` shows the gateway's answer |
+| After paying, eSewa/Khalti opens a page that doesn't load | The phone couldn't reach the return address. Guests must be on the restaurant Wi-Fi, or set `PUBLIC_APP_URL` when hosted |
 | Staff member can't sign in | Check in **Staff & Payroll** that they're active and not set to "Staff" (payroll-only roles can't sign in) |
 | `password authentication failed` after changing `POSTGRES_PASSWORD` | Postgres keeps its first password. Change it back, or (this **deletes all data**) `docker compose down -v` |
 | `P3005 The database schema is not empty` | The database was made by hand. Mark the first migrations applied once: `cd server && node scripts/prisma.js migrate resolve --applied 20240101000000_init` (repeat for `…01_menu_autoincrement`, `…02_menu_image`), then `npm run db:migrate` |
@@ -417,7 +500,7 @@ Railway works the same way: Postgres plugin, deploy `server/` with its Dockerfil
 
 - Build command `npm run build`, output directory `dist`.
 - Set `VITE_API_URL=https://<your-api>.onrender.com` **before** building; it is built into the app.
-- Deep links (`/pos`, `/kitchen`, `/table/table-3`) work through `vercel.json` / `public/_redirects`.
+- Deep links (`/pos`, `/kitchen`, `/table/<code>/`) work through `vercel.json` / `public/_redirects`.
 - Print table QR codes from the **hosted** site so they point at the public address.
 
 ### Single server
@@ -430,6 +513,7 @@ on a VPS can host everything.
 - [ ] Health check `/health` with auto-restart (default on Render/Railway for Docker services).
 - [ ] An [UptimeRobot](https://uptimerobot.com) monitor on `https://<api>/health` alerting your phone.
 - [ ] Daily database backups enabled, and checked on day one.
+- [ ] **Settings → Guest ordering address** set to the public web address, then QR codes reprinted.
 - [ ] Persistent disk at `/app/uploads`.
 - [ ] Strong `JWT_SECRET` and seed passwords, stored in a password manager.
 - [ ] Monthly: restore the latest backup into a scratch database and check the app works against it.

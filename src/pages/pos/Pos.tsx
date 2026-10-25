@@ -3,20 +3,18 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { PageHeader } from '../../components/AppShell';
 import BillModal, { Totals } from '../../components/BillModal';
-import CustomerPicker from '../../components/CustomerPicker';
 import FoodVisual from '../../components/FoodVisual';
 import Icon from '../../components/Icon';
 import Modal from '../../components/Modal';
 import PaymentPanel from '../../components/PaymentPanel';
 import { ReceiptModal } from '../../components/Receipt';
 import { EmptyState, ErrorState, LoadingState } from '../../components/States';
-import { useFeature, useLiveReload, usePolling, useRestaurant, useToast } from '../../hooks';
+import { useLiveReload, usePolling, useRestaurant, useToast } from '../../hooks';
 import { billLabel, orderPlace, timeSince } from '../../lib/format';
 import { computeTotals } from '../../lib/pricing';
-import type { Customer, Order, OrderType, StaffPaymentMethod } from '../../types';
+import type { Order, OrderType, StaffPaymentMethod } from '../../types';
 
 type Cart = Record<number, number>;
-type Picked = Pick<Customer, 'id' | 'name' | 'phone'>;
 
 const loadMenu = () => Promise.all([api.menu.getAll(), api.categories.getAll()]);
 const loadOpenBills = () => api.orders.list({ unpaid: true, limit: 200 });
@@ -25,7 +23,6 @@ export default function Pos() {
   const [params, setParams] = useSearchParams();
   const { restaurant, money } = useRestaurant();
   const toast = useToast();
-  const customersFeature = useFeature('customers');
 
   const menu = usePolling(loadMenu, 30_000);
   const tables = usePolling(api.tables.getAll, 15_000);
@@ -43,7 +40,6 @@ export default function Pos() {
   const [cart, setCart] = useState<Cart>({});
   const [type, setType] = useState<OrderType>('dine_in');
   const [tableId, setTableId] = useState(params.get('table') ?? '');
-  const [customer, setCustomer] = useState<Picked | null>(null);
   const [note, setNote] = useState('');
   const [discount, setDiscount] = useState('');
   const [charging, setCharging] = useState(false);
@@ -84,7 +80,6 @@ export default function Pos() {
     setCart({});
     setNote('');
     setDiscount('');
-    setCustomer(null);
     setCharging(false);
     if (params.get('table')) setParams({}, { replace: true });
   }
@@ -103,7 +98,6 @@ export default function Pos() {
       const order = await api.orders.createPos({
         type,
         tableId: type === 'dine_in' ? tableId : undefined,
-        customerId: customer?.id,
         items: lines.map((m) => ({ menuItemId: String(m.id), quantity: cart[m.id] })),
         customerNote: note,
         discount: Number(discount) || 0,
@@ -142,11 +136,11 @@ export default function Pos() {
           ) : (
             <div className="pos-tiles">
               {visible.map((m) => (
-                <button key={m.id} className="pos-tile" disabled={!m.available} onClick={() => bump(m.id, 1)} title={m.available ? `Add ${m.name}` : 'Sold out'}>
+                <button key={m.id} className="pos-tile" disabled={!m.available} onClick={() => bump(m.id, 1)} title={m.available ? `Add ${m.name}` : 'Not Available'}>
                   <div className="pos-tile-media"><FoodVisual imageUrl={m.imageUrl} category={m.category} iconSize={34} /></div>
                   <div className="pos-tile-body">
                     <div className="pos-tile-name">{m.name}</div>
-                    <div className="pos-tile-price">{m.available ? money(m.price) : 'Sold out'}</div>
+                    <div className="pos-tile-price">{m.available ? money(m.price) : 'Not Available'}</div>
                   </div>
                   {cart[m.id] > 0 && <span className="pos-tile-qty">{cart[m.id]}</span>}
                 </button>
@@ -188,7 +182,6 @@ export default function Pos() {
                     </select>
                   </label>
                 )}
-                {customersFeature.allowed && <div style={{ marginBottom: 'var(--space-3)' }}><CustomerPicker value={customer} onChange={setCustomer} /></div>}
 
                 {lines.length === 0 ? (
                   <EmptyState icon="burger" title="Ticket is empty" text="Tap menu items to add them." />
@@ -247,7 +240,7 @@ export default function Pos() {
                         <span className="bill-no">{billLabel(o)}</span>
                       </span>
                       <span className="row" style={{ justifyContent: 'space-between' }}>
-                        <span className="subtle">{o.items.reduce((s, i) => s + i.quantity, 0)} items · {timeSince(o.createdAt)}{o.customer ? ` · ${o.customer.name}` : ''}</span>
+                        <span className="subtle">{o.items.reduce((s, i) => s + i.quantity, 0)} items · {timeSince(o.createdAt)}</span>
                         <span className="price">{money(o.totalAmount)}</span>
                       </span>
                     </button>

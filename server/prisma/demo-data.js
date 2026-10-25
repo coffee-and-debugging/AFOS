@@ -2,7 +2,7 @@
 
 const RESTAURANT = {
   id: 1,
-  name: 'Flame House',
+  name: 'Yummy Foodland',
   tagline: 'Hot & delicious, made fresh',
   currency: 'Rs.',
   address: 'Durbar Marg, Kathmandu',

@@ -263,9 +263,18 @@ public class DatabaseService
         return tables;
     }
 
+    /// <summary>The "Guest ordering address" from Settings (empty = detect automatically).</summary>
+    public async Task<string> GetQrBaseUrlAsync()
+    {
+        await using var conn = new NpgsqlConnection(ConnStr);
+        await conn.OpenAsync();
+        await using var cmd = new NpgsqlCommand("SELECT \"qrBaseUrl\" FROM \"Restaurant\" WHERE id = 1", conn);
+        return (await cmd.ExecuteScalarAsync()) as string ?? "";
+    }
+
     public async Task<Table?> CreateTableAsync(int number)
     {
-        var id = $"table-{number}";
+        var id = NetworkHelper.NewTableId();
         await using var conn = new NpgsqlConnection(ConnStr);
         await conn.OpenAsync();
 

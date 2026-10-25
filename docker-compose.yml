@@ -38,6 +38,15 @@ services:
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?Set SEED_ADMIN_PASSWORD in .env}
       SEED_CHEF_PASSWORD: ${SEED_CHEF_PASSWORD:?Set SEED_CHEF_PASSWORD in .env}
       SEED_CASHIER_PASSWORD: ${SEED_CASHIER_PASSWORD:?Set SEED_CASHIER_PASSWORD in .env}
+      # Online payments (see .env.example). Empty values fall back to the defaults in server/lib/config.js.
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+      ESEWA_ENV: ${ESEWA_ENV:-test}
+      ESEWA_PRODUCT_CODE: ${ESEWA_PRODUCT_CODE:-}
+      ESEWA_SECRET_KEY: ${ESEWA_SECRET_KEY:-}
+      ESEWA_ACCOUNT: ${ESEWA_ACCOUNT:-9840040733}
+      KHALTI_ENV: ${KHALTI_ENV:-test}
+      KHALTI_SECRET_KEY: ${KHALTI_SECRET_KEY:-}
+      KHALTI_ACCOUNT: ${KHALTI_ACCOUNT:-9866028826}
     ports:
       - "${API_PORT:-3001}:3001"
     volumes:

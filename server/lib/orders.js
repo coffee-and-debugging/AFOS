@@ -7,7 +7,6 @@ const round = (n) => Math.round(n * 100) / 100;
 
 const orderInclude = {
   items: true,
-  customer: { select: { id: true, name: true, phone: true } },
 };
 
 async function getSettings(db) {
@@ -54,7 +53,7 @@ async function applyRecipeStock(tx, lines, sign, reason, refId) {
  * Validates the requested lines against the live menu and creates the order + stock movements.
  * Returns `{ order, stockAlerts }`; publish the alerts only after the transaction commits.
  */
-async function createOrder(tx, { items, type = 'dine_in', source, tableId, customerId, customerNote, discount }) {
+async function createOrder(tx, { items, type = 'dine_in', source, tableId, customerNote, discount }) {
   if (!Array.isArray(items) || items.length === 0) throw new HttpError(400, 'Add at least one item to the order');
   if (!['dine_in', 'takeaway'].includes(type)) throw new HttpError(400, 'Order type must be dine-in or takeaway');
 
@@ -63,10 +62,6 @@ async function createOrder(tx, { items, type = 'dine_in', source, tableId, custo
     if (!tableId) throw new HttpError(400, 'Choose a table for dine-in orders');
     table = await tx.table.findUnique({ where: { id: String(tableId) } });
     if (!table) throw new HttpError(404, 'Table not found');
-  }
-  if (customerId) {
-    const exists = await tx.customer.findUnique({ where: { id: String(customerId) } });
-    if (!exists) throw new HttpError(404, 'Customer not found');
   }
 
   const requested = items.map((i) => ({ id: Number.parseInt(i.menuItemId, 10), quantity: Number(i.quantity) }));
@@ -94,7 +89,6 @@ async function createOrder(tx, { items, type = 'dine_in', source, tableId, custo
       source,
       tableId: table?.id ?? null,
       tableNumber: table?.number ?? null,
-      customerId: customerId || null,
       customerNote: String(customerNote || '').slice(0, 500),
       ...totals,
       items: { create: lines },

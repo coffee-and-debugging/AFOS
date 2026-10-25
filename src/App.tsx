@@ -4,11 +4,11 @@ import { getAuthUser } from './api/client';
 import Providers from './components/Providers';
 import AppShell from './components/AppShell';
 import { LoadingState } from './components/States';
-import RequireFeature from './components/RequireFeature';
 import type { Role } from './types';
 import Login from './pages/Login';
 import CustomerPage from './pages/customer/CustomerPage';
 import OrderStatus from './pages/customer/OrderStatus';
+import PaymentReturn from './pages/customer/PaymentReturn';
 
 // Staff pages load on demand, so guests' phones only download the ordering screens.
 const Dashboard = lazy(() => import('./pages/admin/Dashboard'));
@@ -17,7 +17,6 @@ const TablesManagement = lazy(() => import('./pages/admin/TablesManagement'));
 const Pos = lazy(() => import('./pages/pos/Pos'));
 const Purchases = lazy(() => import('./pages/purchases/Purchases'));
 const Stock = lazy(() => import('./pages/stock/Stock'));
-const Customers = lazy(() => import('./pages/customers/Customers'));
 const Orders = lazy(() => import('./pages/admin/Orders'));
 const KitchenDisplay = lazy(() => import('./pages/kitchen/KitchenDisplay'));
 const Reports = lazy(() => import('./pages/reports/Reports'));
@@ -58,8 +57,6 @@ export default function App() {
           <Route path="/pos" element={<Staff roles={FRONT}><Pos /></Staff>} />
           <Route path="/purchases" element={<Staff roles={ADMIN}><Purchases /></Staff>} />
           <Route path="/stock" element={<Staff roles={['admin', 'chef']}><Stock /></Staff>} />
-          <Route path="/customers" element={<Staff roles={FRONT}><RequireFeature feature="customers"><Customers /></RequireFeature></Staff>} />
-          <Route path="/customer" element={<Navigate to="/customers" replace />} />
           <Route path="/orders" element={<Staff roles={FRONT}><Orders /></Staff>} />
           <Route path="/kitchen" element={<Staff roles={['admin', 'cashier', 'chef']}><KitchenDisplay /></Staff>} />
           <Route path="/reports" element={<Staff roles={ADMIN}><Reports /></Staff>} />
@@ -73,6 +70,8 @@ export default function App() {
 
           <Route path="/table/:tableId" element={<CustomerPage />} />
           <Route path="/order/:orderId" element={<OrderStatus />} />
+          {/* eSewa / Khalti send guests back here after paying */}
+          <Route path="/payment/:gateway/:result/:orderId?" element={<PaymentReturn />} />
 
           <Route path="*" element={<RootRedirect />} />
         </Routes>

@@ -2,7 +2,7 @@ import { createContext } from 'react';
 import type { Restaurant } from '../types';
 
 export const DEFAULT_RESTAURANT: Restaurant = {
-  name: 'AFOS',
+  name: 'Yummy Foodland',
   tagline: '',
   currency: 'Rs.',
   address: '',
@@ -10,6 +10,7 @@ export const DEFAULT_RESTAURANT: Restaurant = {
   taxRate: 0,
   serviceChargeRate: 0,
   receiptFooter: '',
+  qrBaseUrl: '',
   plan: 'pro',
 };
 

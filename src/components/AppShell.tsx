@@ -5,8 +5,7 @@ import LiveAlerts from './LiveAlerts';
 import { OfflineBanner } from './States';
 import { clearAuth, getAuthUser } from '../api/client';
 import { liveEvents } from '../api/events';
-import { useConnectivity, useFeature, useNow, useRestaurant } from '../hooks';
-import type { Feature } from '../lib/plans';
+import { useConnectivity, useNow, useRestaurant } from '../hooks';
 import type { Role } from '../types';
 
 interface NavEntry {
@@ -15,7 +14,6 @@ interface NavEntry {
   icon: IconName;
   roles: Role[];
   quick?: boolean;
-  feature?: Feature;
 }
 
 const ALL: Role[] = ['admin', 'cashier', 'chef'];
@@ -27,7 +25,6 @@ const NAV: NavEntry[] = [
   { to: '/pos', label: 'POS / Billing', icon: 'pos', roles: ['admin', 'cashier'], quick: true },
   { to: '/purchases', label: 'Purchases', icon: 'purchases', roles: ['admin'] },
   { to: '/stock', label: 'Stock', icon: 'stock', roles: ['admin', 'chef'] },
-  { to: '/customers', label: 'Customers', icon: 'customers', roles: ['admin', 'cashier'], feature: 'customers' },
   { to: '/orders', label: 'Orders', icon: 'orders', roles: ['admin', 'cashier'], quick: true },
   { to: '/kitchen', label: 'Kitchen', icon: 'kitchen', roles: ALL, quick: true },
   { to: '/staff', label: 'Staff & Payroll', icon: 'user', roles: ['admin'] },
@@ -43,7 +40,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const connectivity = useConnectivity();
   const now = useNow();
   const [navOpen, setNavOpen] = useState(false);
-  const { allowed: customersAllowed, loaded: planLoaded } = useFeature('customers');
 
   const role = user?.role ?? 'chef';
   const entries = NAV.filter((n) => n.roles.includes(role));
@@ -71,7 +67,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
           {entries.map((n) => (
             <NavLink key={n.to} to={n.to} className="nav-item" onClick={closeNav}>
               <Icon name={n.icon} /> {n.label}
-              {n.feature && planLoaded && !customersAllowed && <span className="nav-lock" title="Upgrade to unlock"><Icon name="lock" size={14} /></span>}
             </NavLink>
           ))}
         </nav>
@@ -124,7 +119,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <OfflineBanner />
         <main className="content">{children}</main>
         <footer className="statusbar">
-          <span>AFOS v{__APP_VERSION__}</span>
+          <span>{restaurant.name} · v{__APP_VERSION__}</span>
           <span>{connectivity === 'online' ? 'All systems normal' : 'Waiting for the server…'}</span>
         </footer>
       </div>

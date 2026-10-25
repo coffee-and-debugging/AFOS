@@ -47,7 +47,7 @@ export default function Login() {
             <div className="hero-title">Run your<br />restaurant<br />in one place</div>
             <p className="hero-sub">Orders, billing, kitchen, stock and reports, updating live across every screen.</p>
           </div>
-          <p className="subtle">AFOS Restaurant OS · v{__APP_VERSION__}</p>
+          <p className="subtle">{restaurant.name} · v{__APP_VERSION__}</p>
         </section>
 
         <section className="auth-form-wrap">
@@ -70,12 +70,6 @@ export default function Login() {
                 {loading ? 'Signing in…' : 'Sign in'}
               </button>
             </form>
-
-            {import.meta.env.DEV && (
-              <p className="auth-hint">
-                Demo accounts — <strong>admin</strong> / admin123 · <strong>cashier</strong> / cashier123 · <strong>chef</strong> / chef123
-              </p>
-            )}
           </div>
         </section>
       </div>

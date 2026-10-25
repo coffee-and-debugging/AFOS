@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const prisma = require('../prisma');
 const logger = require('../lib/logger');
 const { RESTAURANT, addDemoData } = require('./demo-data');
+const { newTableId } = require('../lib/ids');
 
 const TABLE_COUNT = 8;
 
@@ -39,7 +40,7 @@ async function main() {
 
   if ((await prisma.table.count()) === 0) {
     for (let number = 1; number <= TABLE_COUNT; number++) {
-      await prisma.table.create({ data: { id: `table-${number}`, number } });
+      await prisma.table.create({ data: { id: newTableId(), number } });
     }
   }
 

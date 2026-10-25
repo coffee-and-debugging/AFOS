@@ -1,6 +1,6 @@
 const express = require('express');
 const prisma = require('../prisma');
-const { requireAuth, requireFeature, ROLES } = require('../middleware/auth');
+const { requireAuth, ROLES } = require('../middleware/auth');
 const { HttpError, asyncHandler } = require('../lib/http');
 const { orderInclude, getSettings, computeTotals, applyRecipeStock, createOrder } = require('../lib/orders');
 const { notifyLowStock } = require('../lib/stock');
@@ -9,7 +9,6 @@ const events = require('../lib/events');
 const router = express.Router();
 
 const STATUSES = ['pending', 'cooking', 'serving', 'completed', 'cancelled'];
-const GUEST_METHODS = ['esewa', 'khalti', 'counter'];
 const STAFF_METHODS = ['cash', 'card', 'esewa', 'khalti'];
 
 /** Pushes a new order to the kitchen and front desk, plus any low-stock alerts it caused. */
@@ -26,9 +25,9 @@ function parseDate(value, name) {
   return d;
 }
 
-// List orders — staff. Filters: from, to, status, type, tableId, customerId, unpaid, limit
+// List orders — staff. Filters: from, to, status, type, tableId, unpaid, limit
 router.get('/', requireAuth(ROLES.STAFF), asyncHandler(async (req, res) => {
-  const { status, type, tableId, customerId, unpaid } = req.query;
+  const { status, type, tableId, unpaid } = req.query;
   const from = parseDate(req.query.from, 'from');
   const to = parseDate(req.query.to, 'to');
   const limit = Math.min(Number.parseInt(req.query.limit, 10) || 500, 2000);
@@ -39,7 +38,6 @@ router.get('/', requireAuth(ROLES.STAFF), asyncHandler(async (req, res) => {
       ...(status && { status: String(status) }),
       ...(type && { type: String(type) }),
       ...(tableId && { tableId: String(tableId) }),
-      ...(customerId && { customerId: String(customerId) }),
       ...(unpaid === 'true' && { paymentStatus: { not: 'paid' }, status: { not: 'cancelled' } }),
     },
     include: orderInclude,
@@ -49,7 +47,7 @@ router.get('/', requireAuth(ROLES.STAFF), asyncHandler(async (req, res) => {
   res.json(orders);
 }));
 
-// Single order — public so guests can track by the unguessable id. Customer details stay private.
+// Single order — public so guests can track by the unguessable id.
 router.get('/:id', asyncHandler(async (req, res) => {
   const order = await prisma.order.findUnique({ where: { id: req.params.id }, include: { items: true } });
   if (!order) throw new HttpError(404, 'Order not found');
@@ -66,15 +64,12 @@ router.post('/', asyncHandler(async (req, res) => {
 }));
 
 // Staff order from the POS; optionally paid immediately
-// Attaching a customer to an order is part of the premium Customers feature
-const customerFeature = (req, res, next) => (req.body?.customerId ? requireFeature('customers')(req, res, next) : next());
-
-router.post('/pos', requireAuth(ROLES.FRONT), customerFeature, asyncHandler(async (req, res) => {
-  const { items, type, tableId, customerId, customerNote, discount, payWith } = req.body || {};
+router.post('/pos', requireAuth(ROLES.FRONT), asyncHandler(async (req, res) => {
+  const { items, type, tableId, customerNote, discount, payWith } = req.body || {};
   if (payWith && !STAFF_METHODS.includes(payWith)) throw new HttpError(400, 'Unknown payment method');
 
   const created = await prisma.$transaction(async (tx) => {
-    const result = await createOrder(tx, { items, type, source: 'pos', tableId, customerId, customerNote, discount });
+    const result = await createOrder(tx, { items, type, source: 'pos', tableId, customerNote, discount });
     if (!payWith) return result;
     const order = await tx.order.update({
       where: { id: result.order.id },
@@ -106,33 +101,24 @@ router.put('/:id/status', requireAuth(ROLES.STAFF), asyncHandler(async (req, res
   res.json(order);
 }));
 
-// Attach or detach a customer — front desk
-router.patch('/:id/customer', requireAuth(ROLES.FRONT), requireFeature('customers'), asyncHandler(async (req, res) => {
-  const customerId = req.body?.customerId || null;
-  const order = await prisma.order.update({ where: { id: req.params.id }, data: { customerId }, include: orderInclude });
-  events.publish('order.updated', order);
-  res.json(order);
-}));
-
-// Guest payment from the order status page (demo gateways or "pay at counter")
+// Guest chooses "pay at the counter". Online payments go through /api/payments and are
+// marked paid only after eSewa/Khalti confirm them.
 router.post('/:id/payment', asyncHandler(async (req, res) => {
   const { method } = req.body || {};
-  if (!GUEST_METHODS.includes(method)) throw new HttpError(400, 'Choose eSewa, Khalti or counter');
+  if (method !== 'counter') throw new HttpError(400, 'Pay online with eSewa or Khalti from the payment screen');
 
   const existing = await prisma.order.findUnique({ where: { id: req.params.id } });
   if (!existing) throw new HttpError(404, 'Order not found');
   if (existing.paymentStatus === 'paid') throw new HttpError(400, 'This order is already paid');
   if (existing.status === 'cancelled') throw new HttpError(409, 'This order was cancelled');
 
-  const paid = method !== 'counter';
   const order = await prisma.order.update({
     where: { id: existing.id },
-    data: { paymentMethod: method, paymentStatus: paid ? 'paid' : 'pending_counter', paidAt: paid ? new Date() : null },
+    data: { paymentMethod: 'counter', paymentStatus: 'pending_counter' },
     include: orderInclude,
   });
   events.publish('order.updated', order);
-  // Guests never see customer details
-  res.json({ ...order, customer: undefined });
+  res.json(order);
 }));
 
 // Settle a bill at the counter — front desk. Optional discount is applied before charging.

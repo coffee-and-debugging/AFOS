@@ -7,6 +7,7 @@ import Modal from '../../components/Modal';
 import Stat from '../../components/Stat';
 import { EmptyState, ErrorState, LoadingState } from '../../components/States';
 import { usePolling, useRestaurant, useToast } from '../../hooks';
+import { guestBaseUrl } from '../../lib/network';
 import { timeSince } from '../../lib/format';
 import type { Table } from '../../types';
 
@@ -14,10 +15,12 @@ interface QRInfo {
   qrCode: string;
   url: string;
   tableNumber: number;
+  /** False when no reachable address exists (QR would point at localhost) */
+  found: boolean;
 }
 
 export default function TablesManagement() {
-  const { money } = useRestaurant();
+  const { money, restaurant } = useRestaurant();
   const toast = useToast();
   const isAdmin = getAuthUser()?.role === 'admin';
   const { data: tables, error, loading, retry, reload } = usePolling(api.tables.getAll, 10_000);
@@ -56,7 +59,9 @@ export default function TablesManagement() {
   async function showQR(table: Table) {
     setQrLoading(table.id);
     try {
-      setQr(await api.tables.getQR(table.id, window.location.origin));
+      // Manual address from Settings if saved, otherwise this PC's current Wi-Fi address
+      const base = await guestBaseUrl(restaurant);
+      setQr({ ...(await api.tables.getQR(table.id, base.url)), found: base.found });
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
@@ -147,11 +152,20 @@ export default function TablesManagement() {
           </>}
         >
           <div className="print-area" style={{ textAlign: 'center' }}>
+            <div className="qr-brand">{restaurant.name}</div>
+            {restaurant.tagline && <div className="subtle" style={{ marginBottom: 'var(--space-2)' }}>{restaurant.tagline}</div>}
             <div className="hero-kicker" style={{ color: 'var(--color-primary)' }}>Scan to order</div>
             <div className="table-number" style={{ marginBottom: 'var(--space-3)' }}><small>TABLE</small>{qr.tableNumber}</div>
             <img src={qr.qrCode} alt={`QR code for table ${qr.tableNumber}`} className="qr-image" />
             <p className="qr-url">{qr.url}</p>
           </div>
+          {/* Only shown when the code can't work: no Wi-Fi address and no manual address */}
+          {!qr.found && (
+            <p className="alert alert-error" style={{ marginTop: 'var(--space-4)', marginBottom: 0 }}>
+              No Wi-Fi address was found, so this code points at localhost and won't open on phones.
+              Connect this PC to Wi-Fi or set a manual address in <Link to="/settings">Settings</Link>.
+            </p>
+          )}
         </Modal>
       )}
     </>

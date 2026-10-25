@@ -15,7 +15,7 @@ export function Receipt({ order }: { order: Order }) {
       </div>
       <hr />
       <div className="receipt-row"><span>Bill {billLabel(order)}</span><span>{formatDateTime(order.createdAt)}</span></div>
-      <div className="receipt-row"><span>{orderPlace(order)}</span>{order.customer && <span>{order.customer.name}</span>}</div>
+      <div className="receipt-row"><span>{orderPlace(order)}</span></div>
       <hr />
       {order.items.map((item, i) => (
         <div key={i}>
@@ -34,6 +34,7 @@ export function Receipt({ order }: { order: Order }) {
         <span>{order.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}</span>
         <span>{order.paymentMethod ? PAYMENT_LABEL[order.paymentMethod] : '—'}</span>
       </div>
+      {order.paymentRef && <div className="receipt-row"><span>Txn ref</span><span>{order.paymentRef}</span></div>}
       {restaurant.receiptFooter && <><hr /><div className="receipt-center">{restaurant.receiptFooter}</div></>}
     </div>
   );

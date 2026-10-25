@@ -2,10 +2,10 @@ import { useCallback, useContext, useEffect, useRef, useState, useSyncExternalSt
 import { connectivityStore } from '../api/client';
 import { liveEvents, type LiveEventName } from '../api/events';
 import { soundStore } from '../lib/sound';
+import { stockAlertPrefs } from '../lib/alertPrefs';
 import type { LiveEvents } from '../types';
 import { RestaurantContext, ToastContext } from '../lib/contexts';
 import { formatMoney } from '../lib/format';
-import { hasFeature, type Feature } from '../lib/plans';
 import { amountMaskStore, MASK } from '../lib/privacy';
 
 export function useRestaurant() {
@@ -16,12 +16,6 @@ export function useRestaurant() {
 }
 
 export const useToast = () => useContext(ToastContext);
-
-/** Whether the restaurant's plan includes a premium feature. `loaded` is false until the plan is known. */
-export function useFeature(feature: Feature) {
-  const { restaurant, loaded } = useContext(RestaurantContext);
-  return { allowed: hasFeature(restaurant.plan, feature), loaded, plan: restaurant.plan };
-}
 
 /**
  * Show/hide sensitive amounts. `show(amount)` returns the formatted money or a mask,
@@ -136,3 +130,6 @@ export function useLiveReload(reload: () => void, names: LiveEventName[], delayM
 export const useLiveStatus = () => useSyncExternalStore(liveEvents.onStatus, liveEvents.getStatus);
 
 export const useSound = () => useSyncExternalStore(soundStore.subscribe, soundStore.getSnapshot);
+
+/** This device's low-stock notification settings (pop-ups, sound, muted items) */
+export const useStockAlertPrefs = () => useSyncExternalStore(stockAlertPrefs.subscribe, stockAlertPrefs.getSnapshot);

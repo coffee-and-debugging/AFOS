@@ -1,5 +1,5 @@
 import type {
-  AuthUser, Category, Customer, MenuItem, Order, OrderType, PaymentMethod, Purchase, RecipeLine, Report,
+  AuthUser, Category, MenuItem, Order, OrderType, PaymentGatewayInfo, PaymentResult, Purchase, RecipeLine, Report,
   Restaurant, StaffCategory, StaffMember, StaffPayment, StaffPaymentMethod, StockItem, StockMovement, Supplier, Table,
 } from '../types';
 
@@ -197,6 +197,8 @@ export const api = {
 
   tables: {
     getAll: () => request<Table[]>('/tables'),
+    /** Public: which table a QR code belongs to */
+    getPublic: (id: string) => request<Pick<Table, 'id' | 'number'>>(`/tables/${encodeURIComponent(id)}/public`),
     create: (number: number) => request<Table>('/tables', json('POST', { number })),
     delete: (id: string) => request<{ success: boolean }>(`/tables/${id}`, json('DELETE')),
     getQR: (id: string, baseUrl: string) =>
@@ -204,7 +206,7 @@ export const api = {
   },
 
   orders: {
-    list: (params: Partial<DateRange> & { status?: string; type?: string; customerId?: string; unpaid?: boolean; limit?: number } = {}) =>
+    list: (params: Partial<DateRange> & { status?: string; type?: string; unpaid?: boolean; limit?: number } = {}) =>
       request<Order[]>(`/orders${query(params)}`),
     getById: (id: string) => request<Order>(`/orders/${id}`),
     create: (data: { tableId: string; items: { menuItemId: string; quantity: number }[]; customerNote?: string }) =>
@@ -212,7 +214,6 @@ export const api = {
     createPos: (data: {
       type: OrderType;
       tableId?: string;
-      customerId?: string;
       items: { menuItemId: string; quantity: number }[];
       customerNote?: string;
       discount?: number;
@@ -220,20 +221,24 @@ export const api = {
     }) => request<Order>('/orders/pos', json('POST', data)),
     updateStatus: (id: string, status: Order['status']) =>
       request<Order>(`/orders/${id}/status`, json('PUT', { status })),
-    setCustomer: (id: string, customerId: string | null) =>
-      request<Order>(`/orders/${id}/customer`, json('PATCH', { customerId })),
-    processPayment: (id: string, method: Extract<PaymentMethod, 'esewa' | 'khalti' | 'counter'>) =>
+    /** Guest chooses to pay at the counter. Online payments go through `api.payments`. */
+    processPayment: (id: string, method: 'counter') =>
       request<Order>(`/orders/${id}/payment`, json('POST', { method })),
     pay: (id: string, method: StaffPaymentMethod, discount?: number) =>
       request<Order>(`/orders/${id}/pay`, json('POST', { method, discount })),
   },
 
-  customers: {
-    list: (q?: string) => request<Customer[]>(`/customers${query({ q })}`),
-    get: (id: string) => request<Customer & { orders: Order[] }>(`/customers/${id}`),
-    create: (data: Partial<Customer>) => request<Customer>('/customers', json('POST', data)),
-    update: (id: string, data: Partial<Customer>) => request<Customer>(`/customers/${id}`, json('PUT', data)),
-    delete: (id: string) => request<{ success: boolean }>(`/customers/${id}`, json('DELETE')),
+  payments: {
+    gateways: () => request<PaymentGatewayInfo[]>('/payments/gateways'),
+    /** Returns the form the browser must POST to eSewa */
+    startEsewa: (orderId: string) =>
+      request<{ action: string; fields: Record<string, string> }>(`/payments/orders/${orderId}/esewa`, json('POST')),
+    /** Returns the Khalti checkout page to send the guest to */
+    startKhalti: (orderId: string) => request<{ paymentUrl: string }>(`/payments/orders/${orderId}/khalti`, json('POST')),
+    confirmEsewa: (data: string) => request<PaymentResult>('/payments/esewa/confirm', json('POST', { data })),
+    confirmKhalti: (pidx: string) => request<PaymentResult>('/payments/khalti/confirm', json('POST', { pidx })),
+    /** Re-checks unfinished online payments for an order with the gateway */
+    check: (orderId: string) => request<PaymentResult>(`/payments/orders/${orderId}/check`, json('POST')),
   },
 
   suppliers: {

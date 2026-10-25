@@ -7,6 +7,8 @@ export interface Restaurant {
   taxRate: number;
   serviceChargeRate: number;
   receiptFooter: string;
+  /** Address printed in table QR codes, e.g. http://192.168.100.20:5173. Empty = automatic */
+  qrBaseUrl: string;
   plan: Plan;
 }
 
@@ -65,13 +67,13 @@ export interface Order {
   source: 'qr' | 'pos';
   tableId: string | null;
   tableNumber: number | null;
-  customerId: string | null;
-  customer?: { id: string; name: string; phone: string | null } | null;
   items: OrderItem[];
   customerNote: string;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   paymentMethod: PaymentMethod | null;
+  /** eSewa / Khalti transaction id when paid online */
+  paymentRef?: string | null;
   subtotal: number;
   discount: number;
   serviceCharge: number;
@@ -80,18 +82,6 @@ export interface Order {
   paidAt: string | null;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface Customer {
-  id: string;
-  name: string;
-  phone: string | null;
-  email: string;
-  notes: string;
-  createdAt: string;
-  visits: number;
-  totalSpent: number;
-  lastVisit: string | null;
 }
 
 export interface Supplier {
@@ -163,6 +153,27 @@ export interface Report {
   byCategory: { name: string; amount: number }[];
   topItems: { name: string; quantity: number; revenue: number }[];
   stock: { value: number; lowStock: { id: number; name: string; unit: string; quantity: number; reorderLevel: number }[] };
+}
+
+export type OnlineGateway = 'esewa' | 'khalti';
+
+export interface PaymentGatewayInfo {
+  id: OnlineGateway;
+  name: string;
+  /** False until the merchant keys are configured on the server */
+  enabled: boolean;
+  /** Sandbox: no real money moves */
+  testMode: boolean;
+  /** Wallet the payment goes to, shown to the guest */
+  account: string;
+}
+
+/** Answer after the API has checked a payment with the gateway */
+export interface PaymentResult {
+  paid: boolean;
+  order: Order;
+  message?: string;
+  needsStaff?: boolean;
 }
 
 export type Role = 'admin' | 'cashier' | 'chef';
