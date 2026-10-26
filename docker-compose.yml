@@ -35,9 +35,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:4173}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?Set SEED_ADMIN_PASSWORD in .env}
-      SEED_CHEF_PASSWORD: ${SEED_CHEF_PASSWORD:?Set SEED_CHEF_PASSWORD in .env}
-      SEED_CASHIER_PASSWORD: ${SEED_CASHIER_PASSWORD:?Set SEED_CASHIER_PASSWORD in .env}
+      # Only used if you run the seed by hand inside the container; the API no longer seeds on start
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_CHEF_PASSWORD: ${SEED_CHEF_PASSWORD:-}
+      SEED_CASHIER_PASSWORD: ${SEED_CASHIER_PASSWORD:-}
       # Online payments (see .env.example). Empty values fall back to the defaults in server/lib/config.js.
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
       ESEWA_ENV: ${ESEWA_ENV:-test}

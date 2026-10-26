@@ -91,7 +91,16 @@ npm install
 npm start
 ```
 
-The first start takes a few minutes while Docker builds the API. When it's done, open **http://localhost:5173** and sign in:
+The first start takes a few minutes while Docker builds the API. Starting the server **never adds data**: the database
+is left exactly as it is. So on a **brand-new database only**, create the starter accounts and settings once, in a
+second terminal while `npm start` is running:
+
+```bash
+npm run server:install   # once, so the seed can run on this computer
+npm run db:seed          # starter accounts, restaurant settings and the demo restaurant
+```
+
+Then open **http://localhost:5173** and sign in:
 
 | Account | Opens on | Password |
 |---|---|---|
@@ -105,7 +114,7 @@ account in **Staff & Payroll**:
 - **Add kitchen staff** creates a sign-in for the kitchen display and stock.
 - **Add staff** covers any other role, including payroll-only staff (waiters, cleaners) who never sign in.
 
-A brand-new database comes with a demo restaurant: 17 menu items with recipes, 15 stock items, 3 suppliers, 8 tables
+On a brand-new database, `npm run db:seed` also adds a demo restaurant: 17 menu items with recipes, 15 stock items, 3 suppliers, 8 tables
 and 5 staff departments. It never overwrites an existing database. `npm run db:demo` adds the demo menu to an
 existing one.
 
@@ -371,8 +380,9 @@ but the app no longer uses it.
 
 - **Migrations** are in `server/prisma/migrations/`. Docker applies them automatically every time the API starts
   (`server/docker-entrypoint.sh`); each runs only once.
-- **Seed** (`server/prisma/seed.js`) only creates what's missing: the three starter accounts, restaurant settings, and on
-  an empty database the demo menu, stock, suppliers and 8 tables. Your own edits are never overwritten.
+- **Seed** (`server/prisma/seed.js`) is **not** run when the server starts. Run it yourself with `npm run db:seed` (e.g.
+  once on a new database). It only creates what's missing: the three starter accounts, restaurant settings, and on an
+  empty database the demo menu, stock, suppliers and 8 tables. Your own edits are never overwritten.
 - Stock quantities are always stored in the item's base unit (e.g. single pieces), so fractional and loose-unit sales
   deduct exactly.
 
@@ -488,8 +498,9 @@ To use AFOS from anywhere, or without keeping a PC on, host the **API + database
    | `TRUST_PROXY` | `true` |
 
    Add a **persistent disk** at `/app/uploads` for menu photos.
-3. Migrations and the seed run automatically on every deploy. A failed migration stops the deploy and keeps the old
-   version running.
+3. Migrations run automatically on every deploy; the seed doesn't. On the first deploy, run `node prisma/seed.js` once
+   from the host's shell to create the starter accounts. A failed migration stops the deploy and keeps the old version
+   running.
 4. Run a **single instance**. Live updates (kitchen bell, stock popups) are shared within one API process.
 
 Railway works the same way: Postgres plugin, deploy `server/` with its Dockerfile, the same variables, a volume at

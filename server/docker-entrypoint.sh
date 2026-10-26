@@ -1,5 +1,7 @@
 #!/bin/sh
-# Apply migrations and seed (both idempotent), then hand off to the API.
+# Apply migrations (idempotent), then hand off to the API.
+# Seeding is NOT run on start, so the database is left exactly as it is. To create the
+# starter accounts/demo data on a fresh database, run it by hand: npm run db:seed
 # Retries cover the window where Postgres reports healthy but is still settling.
 set -e
 
@@ -13,7 +15,5 @@ until node scripts/prisma.js migrate deploy; do
   attempt=$((attempt + 1))
   sleep 3
 done
-
-node prisma/seed.js
 
 exec node index.js
