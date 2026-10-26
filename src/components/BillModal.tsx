@@ -64,7 +64,6 @@ export default function BillModal({ order, onClose, onPaid }: { order: Order; on
     </Modal>
   );
 }
-
 export function Totals({ totals }: { totals: ReturnType<typeof computeTotals> }) {
   const { restaurant, money } = useRestaurant();
   return (
