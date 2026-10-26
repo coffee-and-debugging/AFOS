@@ -396,27 +396,28 @@ function ItemForm({ item, categories, stock, onSaved, onClose }: {
             <span className="field-label">Description</span>
             <textarea className="input" rows={2} value={form.description} onChange={set('description')} />
           </label>
-          <div className="row" style={{ alignItems: 'flex-start' }}>
-            <label className="field spacer">
+          {/* Equal columns with one-line labels, so all three inputs sit on the same line */}
+          <div className="grid-3 price-row">
+            <label className="field">
               <span className="field-label">Price</span>
               <input type="number" step="1" min="0" className="input" value={form.price} onChange={set('price')} required />
             </label>
-            <label className="field spacer">
-              <span className="field-label">Half plate price <span className="subtle">(optional)</span></span>
-              <input type="number" step="1" min="0" className="input" value={form.halfPrice} onChange={set('halfPrice')} placeholder="No half plate" />
+            <label className="field">
+              <span className="field-label">Half plate price</span>
+              <input type="number" step="1" min="0" className="input" value={form.halfPrice} onChange={set('halfPrice')} placeholder="Optional" aria-describedby="half-hint" />
             </label>
-            <label className="field spacer">
+            <label className="field">
               <span className="field-label">Category</span>
               <select className="input" value={form.category} onChange={set('category')} required>
                 {categories.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
               </select>
             </label>
           </div>
-          {form.halfPrice.trim() !== '' && (
-            <p className="field-hint" style={{ marginTop: 'calc(-1 * var(--space-2))', marginBottom: 'var(--space-4)' }}>
-              Guests and the POS can choose Full or Half plate. The kitchen sees "Half plate" on the ticket, and a half plate uses half of the ingredients below.
-            </p>
-          )}
+          <p id="half-hint" className="field-hint" style={{ marginTop: 'calc(-1 * var(--space-2))', marginBottom: 'var(--space-4)' }}>
+            {form.halfPrice.trim() !== ''
+              ? 'Guests and the POS can choose Full or Half plate. The kitchen sees "Half plate" on the ticket, and a half plate uses half of the ingredients below.'
+              : 'Half plate price is optional. Leave it empty if this item is only sold as a full plate.'}
+          </p>
           <div className="field">
             <span className="field-label">Photo</span>
             {imagePreview && (

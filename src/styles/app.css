@@ -1093,6 +1093,8 @@ tfoot th { padding-top: var(--space-3); border-top: 2px solid var(--color-border
 .qr-preview-list code { font-size: var(--text-xs); color: var(--color-text-muted); overflow-wrap: anywhere; }
 
 /* ============ Half plate portions ============ */
+.price-row { align-items: end; }
+.price-row .field-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pos-tile-wrap { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .pos-tile-wrap > .pos-tile { flex: 1; width: 100%; }
 .pos-half-btn {
