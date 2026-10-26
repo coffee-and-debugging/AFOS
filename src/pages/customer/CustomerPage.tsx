@@ -235,7 +235,8 @@ function ItemCard({ item, cart, money, onQty }: {
       </div>
       <div className="item-body">
         <h3 className="item-name">{item.name}</h3>
-        {item.description && <p className="item-desc">{item.description}</p>}
+        {/* Always present (even empty) so every card has the same text area */}
+        <p className="item-desc" title={item.description || undefined} aria-hidden={!item.description}>{item.description}</p>
         {portions.map(({ portion, price }) => {
           const key = cartKey(item.id, portion);
           const qty = cart[key] || 0;

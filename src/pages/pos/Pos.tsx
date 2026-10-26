@@ -140,13 +140,13 @@ export default function Pos() {
                     {full + half > 0 && <span className="pos-tile-qty">{full + half}</span>}
                   </button>
                 );
-                if (!hasHalf(m)) return <div key={m.id} className="pos-tile-wrap">{tile}</div>;
+                if (!hasHalf(m) || !m.available) return <div key={m.id} className="pos-tile-wrap">{tile}</div>;
                 // Tapping the tile adds a full plate; the Half button below adds a half plate
                 return (
                   <div key={m.id} className="pos-tile-wrap">
                     {tile}
-                    <button className="pos-half-btn" disabled={!m.available} onClick={() => bump(cartKey(m.id, 'half'), 1)} aria-label={`Add ${m.name} half plate`}>
-                      + Half · {money(m.halfPrice!)}{half > 0 && <span className="pos-half-qty">{half}</span>}
+                    <button className="pos-half-btn" onClick={() => bump(cartKey(m.id, 'half'), 1)} aria-label={`Add ${m.name} half plate`} title={`Add half plate (${money(m.halfPrice!)})`}>
+                      ½ {money(m.halfPrice!)}{half > 0 && <span className="pos-half-qty">{half}</span>}
                     </button>
                   </div>
                 );

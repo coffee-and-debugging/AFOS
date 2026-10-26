@@ -505,9 +505,14 @@ tr.is-muted td { opacity: 0.55; }
 }
 .pos-tile:hover:not(:disabled) { border-color: var(--color-primary); box-shadow: var(--shadow); transform: translateY(-1px); }
 .pos-tile:disabled { opacity: 0.45; cursor: not-allowed; }
-.pos-tile-media { aspect-ratio: 16 / 10; }
+.pos-tile-media { aspect-ratio: 4 / 3; } /* same frame as guest cards and the photo editor */
 .pos-tile-body { padding: var(--space-2) var(--space-3) var(--space-3); }
-.pos-tile-name { font-weight: 600; font-size: var(--text-sm); line-height: 1.25; }
+/* Name always takes exactly two lines, so prices line up across tiles */
+.pos-tile-name {
+  font-weight: 600; font-size: var(--text-sm); line-height: 1.25;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow: hidden; min-height: 2.5em; overflow-wrap: anywhere;
+}
 .pos-tile-price { font-weight: 700; color: var(--color-primary); }
 .pos-tile-qty { position: absolute; top: var(--space-2); right: var(--space-2); min-width: 26px; height: 26px; padding: 0 6px; border-radius: var(--radius-pill); background: var(--color-primary); color: #fff; font-weight: 800; font-size: var(--text-sm); line-height: 26px; text-align: center; }
 
@@ -611,9 +616,10 @@ tr.is-muted td { opacity: 0.55; }
 .table-number small { font-size: var(--text-sm); color: var(--color-text-subtle); font-weight: 700; letter-spacing: 0.08em; margin-right: 4px; }
 
 /* ============ Menu management ============ */
-.thumb { width: 52px; height: 52px; border-radius: var(--radius); overflow: hidden; flex-shrink: 0; }
+.cell-clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; max-width: 360px; overflow-wrap: anywhere; }
+.thumb { width: 64px; height: 48px; border-radius: var(--radius); overflow: hidden; flex-shrink: 0; } /* 4:3 like menu photos */
 .image-preview { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
-.image-preview img { width: 104px; height: 72px; object-fit: cover; border-radius: var(--radius); }
+.image-preview img { width: 96px; height: 72px; object-fit: cover; border-radius: var(--radius); } /* 4:3 */
 .line-editor { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: var(--space-2); align-items: center; margin-bottom: var(--space-2); }
 .line-editor.two { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; }
 .qr-image { width: 240px; height: 240px; margin: 0 auto var(--space-4); }
@@ -658,12 +664,22 @@ tr.is-muted td { opacity: 0.55; }
 .item-card { display: flex; flex-direction: column; overflow: hidden; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); transition: box-shadow var(--ease), transform var(--ease); }
 .item-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
 .item-card.is-unavailable { opacity: 0.55; }
-.item-media { position: relative; aspect-ratio: 4 / 3; }
+.item-media { position: relative; aspect-ratio: 4 / 3; flex: none; } /* fixed photo frame (photos are saved 4:3) */
 .item-soldout { position: absolute; inset: auto var(--space-2) var(--space-2) auto; padding: 2px var(--space-2); border-radius: var(--radius-pill); background: var(--color-text); color: #fff; font-size: var(--text-xs); font-weight: 600; }
 .item-body { display: flex; flex-direction: column; flex: 1; gap: var(--space-1); padding: var(--space-3); }
 .item-name { font-weight: 600; line-height: 1.25; }
-.item-desc { flex: 1; font-size: var(--text-xs); color: var(--color-text-muted); }
+/* Fixed text areas on menu cards: name 2 lines, description 2 lines (cut with "…"), price row at the bottom */
+.item-card .item-name {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow: hidden; min-height: 2.5em; margin: 0; overflow-wrap: anywhere;
+}
+.item-desc {
+  margin: 0; font-size: var(--text-xs); line-height: 1.4; color: var(--color-text-muted);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow: hidden; height: 2.8em; overflow-wrap: anywhere;
+}
 .item-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-2); }
+.item-body > .item-foot:first-of-type { margin-top: auto; padding-top: var(--space-2); } /* price rows sit at the bottom of every card */
 .price { font-weight: 700; color: var(--color-primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .qty { display: inline-flex; align-items: center; gap: var(--space-1); }
@@ -1095,14 +1111,17 @@ tfoot th { padding-top: var(--space-3); border-top: 2px solid var(--color-border
 /* ============ Half plate portions ============ */
 .price-row { align-items: end; }
 .price-row .field-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pos-tile-wrap { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+/* Every tile is the same size; the Half chip sits on the photo's bottom-right corner (never over text).
+   The photo is 4:3, so its bottom edge is at 75% of the tile width (cqw = container width). */
+.pos-tile-wrap { position: relative; display: flex; min-width: 0; container-type: inline-size; }
 .pos-tile-wrap > .pos-tile { flex: 1; width: 100%; }
 .pos-half-btn {
-  position: relative;
-  min-height: 34px; padding: 0 var(--space-2);
-  border: 1px dashed var(--color-accent); border-radius: var(--radius);
-  background: var(--color-accent-tint); color: var(--color-accent-hover);
-  font: inherit; font-size: var(--text-xs); font-weight: 700; cursor: pointer;
+  position: absolute; right: var(--space-2); top: calc(75cqw - 28px - var(--space-2));
+  box-shadow: 0 2px 6px rgba(17, 24, 39, 0.15);
+  min-height: 28px; padding: 0 var(--space-2);
+  border: 1px solid var(--color-accent); border-radius: var(--radius-pill);
+  background: #fff; color: var(--color-accent-hover);
+  font: inherit; font-size: var(--text-xs); font-weight: 700; white-space: nowrap; cursor: pointer;
 }
 .pos-half-btn:hover:not(:disabled) { background: var(--color-accent-soft); }
 .pos-half-btn:disabled { opacity: 0.45; cursor: not-allowed; }

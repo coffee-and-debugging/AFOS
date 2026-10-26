@@ -3,6 +3,10 @@ import Cropper, { type ReactCropperElement } from 'react-cropper';
 import 'cropperjs/dist/cropper.css';
 import Modal from './Modal';
 
+// Every menu photo is cropped to the same 4:3 frame and saved at the same size, so all
+// cards on the guest menu, POS and admin list look identical. Keep in sync with .item-media / .pos-tile-media.
+const MENU_PHOTO = { width: 800, height: 600 };
+
 interface Props {
   src: string;
   onSave: (blob: Blob) => void;
@@ -30,7 +34,12 @@ export default function ImageEditor({ src, onSave, onCancel }: Props) {
   }
 
   function save() {
-    const canvas = cropper()?.getCroppedCanvas({ maxWidth: 800, maxHeight: 600 });
+    const canvas = cropper()?.getCroppedCanvas({
+      width: MENU_PHOTO.width,
+      height: MENU_PHOTO.height,
+      fillColor: '#ffffff', // rotated photos never leave transparent corners
+      imageSmoothingQuality: 'high',
+    });
     if (!canvas) return;
     // Bake brightness/contrast into the exported image
     const out = document.createElement('canvas');
@@ -57,8 +66,20 @@ export default function ImageEditor({ src, onSave, onCancel }: Props) {
       }
     >
       <div className="editor-canvas" style={{ filter }}>
-        <Cropper ref={cropperRef} src={src} style={{ height: 340, width: '100%' }} viewMode={1} autoCropArea={1} responsive guides />
+        <Cropper
+          ref={cropperRef}
+          src={src}
+          style={{ height: 340, width: '100%' }}
+          aspectRatio={MENU_PHOTO.width / MENU_PHOTO.height}
+          viewMode={1}
+          autoCropArea={1}
+          responsive
+          guides
+        />
       </div>
+      <p className="field-hint" style={{ marginTop: 0 }}>
+        Drag the frame to choose what shows. Every menu photo uses the same 4:3 frame and is saved at {MENU_PHOTO.width}×{MENU_PHOTO.height}, so all items look consistent.
+      </p>
       <div className="stack" style={{ gap: 'var(--space-3)' }}>
         <div className="row">
           <button className="btn btn-secondary btn-sm" onClick={() => cropper()?.rotate(-90)}>Rotate left</button>

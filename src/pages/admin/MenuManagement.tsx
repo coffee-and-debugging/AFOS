@@ -112,7 +112,7 @@ export default function MenuManagement() {
                           <div className="thumb"><FoodVisual imageUrl={item.imageUrl} category={item.category} iconSize={22} /></div>
                         </td>
                         <td><strong>{item.name}</strong></td>
-                        <td className="muted">{item.description}</td>
+                        <td className="muted"><div className="cell-clamp" title={item.description || undefined}>{item.description}</div></td>
                         <td className="num nowrap">
                           {money(item.price)}
                           {item.halfPrice != null && <div className="subtle" style={{ fontSize: 'var(--text-xs)' }}>Half {money(item.halfPrice)}</div>}
