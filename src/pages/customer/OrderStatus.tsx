@@ -11,6 +11,10 @@ import { billLabel, formatTime, orderPlace, PAYMENT_LABEL } from '../../lib/form
 import type { OrderStatus as Status } from '../../types';
 import type { PaymentNotice } from './PaymentReturn';
 
+// Guests' "Pay online" button is hidden for now. Set to true to show it again;
+// all online-payment code and flows below are unchanged.
+const SHOW_PAY_ONLINE_BUTTON = false;
+
 const STEPS: { status: Status; label: string; icon: IconName }[] = [
   { status: 'pending', label: 'Received', icon: 'check' },
   { status: 'cooking', label: 'Cooking', icon: 'flame' },
@@ -132,10 +136,12 @@ export default function OrderStatus() {
           )}
           {order.paymentStatus !== 'paid' && (
             <>
-              {order.paymentStatus === 'unpaid' && <p className="muted" style={{ marginBottom: 'var(--space-4)' }}>Pay at the counter when you leave, or pay now with eSewa or Khalti.</p>}
-              <button className="btn btn-primary btn-block btn-lg" onClick={() => setPaying(true)}>
-                Pay online · {money(order.totalAmount)}
-              </button>
+              {order.paymentStatus === 'unpaid' && <p className="muted" style={{ marginBottom: 'var(--space-4)' }}>Kindly settle your bill at the counter. Online checkout is on the way!</p>}
+              {SHOW_PAY_ONLINE_BUTTON && (
+                <button className="btn btn-primary btn-block btn-lg" onClick={() => setPaying(true)}>
+                  Pay online · {money(order.totalAmount)}
+                </button>
+              )}
             </>
           )}
         </section>}
