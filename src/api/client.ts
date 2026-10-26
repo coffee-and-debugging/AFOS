@@ -1,5 +1,5 @@
 import type {
-  AuthUser, Category, MenuItem, Order, OrderType, PaymentGatewayInfo, PaymentResult, Purchase, RecipeLine, Report,
+  AuthUser, Category, MenuItem, Order, OrderType, PaymentGatewayInfo, PaymentResult, Portion, Purchase, RecipeLine, Report,
   Restaurant, StaffCategory, StaffMember, StaffPayment, StaffPaymentMethod, StockItem, StockMovement, Supplier, Table,
 } from '../types';
 
@@ -209,12 +209,12 @@ export const api = {
     list: (params: Partial<DateRange> & { status?: string; type?: string; unpaid?: boolean; limit?: number } = {}) =>
       request<Order[]>(`/orders${query(params)}`),
     getById: (id: string) => request<Order>(`/orders/${id}`),
-    create: (data: { tableId: string; items: { menuItemId: string; quantity: number }[]; customerNote?: string }) =>
+    create: (data: { tableId: string; items: { menuItemId: string; quantity: number; portion?: Portion }[]; customerNote?: string }) =>
       request<Order>('/orders', json('POST', data)),
     createPos: (data: {
       type: OrderType;
       tableId?: string;
-      items: { menuItemId: string; quantity: number }[];
+      items: { menuItemId: string; quantity: number; portion?: Portion }[];
       customerNote?: string;
       discount?: number;
       payWith?: StaffPaymentMethod;

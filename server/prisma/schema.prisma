@@ -91,6 +91,7 @@ model MenuItem {
   name        String
   description String       @default("")
   price       Float
+  halfPrice   Float? // optional half-plate price; when set, guests and the POS can order a half plate
   category    String
   categoryRef Category     @relation(fields: [category], references: [slug], onUpdate: Cascade, onDelete: Restrict)
   available   Boolean      @default(true)
@@ -186,6 +187,7 @@ model OrderItem {
   price      Float
   quantity   Int
   subtotal   Float
+  portion    String @default("full") // full | half (half plate: half price, half the recipe)
 
   @@index([orderId])
 }

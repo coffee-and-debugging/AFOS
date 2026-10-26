@@ -8,9 +8,8 @@ import Modal from '../../components/Modal';
 import { EmptyState, ErrorState, LoadingState } from '../../components/States';
 import { usePolling, useRestaurant, useToast } from '../../hooks';
 import { billLabel } from '../../lib/format';
+import { bumpCart, cartKey, cartLines, hasHalf, orderItems, PORTION_LABEL, type Cart } from '../../lib/portions';
 import type { MenuItem, Order } from '../../types';
-
-type Cart = Record<number, number>;
 
 const storageKey = (tableId: string) => `afos_orders_${tableId}`;
 
@@ -70,18 +69,11 @@ export default function CustomerPage() {
   const [items, categories, table] = menu.data;
   const tableNumber = table.number;
   // Delta-based so rapid taps are never lost to a stale render
-  const bump = (id: number, delta: number) =>
-    setCart((prev) => {
-      const next = { ...prev };
-      const qty = Math.min((prev[id] || 0) + delta, 50);
-      if (qty <= 0) delete next[id];
-      else next[id] = qty;
-      return next;
-    });
+  const bump = (key: string, delta: number) => setCart((prev) => bumpCart(prev, key, delta));
 
-  const cartItems = items.filter((m) => (cart[m.id] || 0) > 0);
-  const cartCount = cartItems.reduce((s, m) => s + cart[m.id], 0);
-  const cartTotal = cartItems.reduce((s, m) => s + cart[m.id] * m.price, 0);
+  const cartItems = cartLines(items, cart);
+  const cartCount = cartItems.reduce((s, l) => s + l.qty, 0);
+  const cartTotal = cartItems.reduce((s, l) => s + l.qty * l.unitPrice, 0);
   const sections = categories
     .filter((c) => category === 'all' || c.slug === category)
     .map((c) => ({ ...c, items: items.filter((m) => m.category === c.slug) }))
@@ -92,7 +84,7 @@ export default function CustomerPage() {
     try {
       const order = await api.orders.create({
         tableId,
-        items: cartItems.map((m) => ({ menuItemId: String(m.id), quantity: cart[m.id] })),
+        items: orderItems(cartItems),
         customerNote: note,
       });
       rememberOrder(tableId, order.id);
@@ -159,7 +151,7 @@ export default function CustomerPage() {
             <h2 className="section-title">{section.name}</h2>
             <div className="item-grid">
               {section.items.map((item) => (
-                <ItemCard key={item.id} item={item} qty={cart[item.id] || 0} price={money(item.price)} onQty={(d) => bump(item.id, d)} />
+                <ItemCard key={item.id} item={item} cart={cart} money={money} onQty={bump} />
               ))}
             </div>
           </section>
@@ -195,14 +187,15 @@ export default function CustomerPage() {
           ) : (
             <>
               <div className="cart-list">
-                {cartItems.map((item) => (
-                  <div key={item.id} className="cart-row">
+                {cartItems.map(({ key, item, portion, qty, unitPrice }) => (
+                  <div key={key} className="cart-row">
                     <div className="cart-thumb"><FoodVisual imageUrl={item.imageUrl} category={item.category} iconSize={20} /></div>
                     <div className="cart-info">
                       <div className="item-name">{item.name}</div>
-                      <div className="price">{money(item.price * cart[item.id])}</div>
+                      {hasHalf(item) && <div className={`portion-tag is-${portion}`}>{PORTION_LABEL[portion]}</div>}
+                      <div className="price">{money(unitPrice * qty)}</div>
                     </div>
-                    <Quantity qty={cart[item.id]} onChange={(d) => bump(item.id, d)} label={item.name} />
+                    <Quantity qty={qty} onChange={(d) => bump(key, d)} label={`${item.name}${portion === 'half' ? ' half plate' : ''}`} />
                   </div>
                 ))}
               </div>
@@ -223,7 +216,17 @@ export default function CustomerPage() {
   );
 }
 
-function ItemCard({ item, qty, price, onQty }: { item: MenuItem; qty: number; price: string; onQty: (delta: number) => void }) {
+function ItemCard({ item, cart, money, onQty }: {
+  item: MenuItem;
+  cart: Cart;
+  money: (n: number) => string;
+  onQty: (key: string, delta: number) => void;
+}) {
+  // Items with a half-plate price get a Full and a Half row; everything else is unchanged
+  const portions = hasHalf(item)
+    ? [{ portion: 'full' as const, price: item.price }, { portion: 'half' as const, price: item.halfPrice! }]
+    : [{ portion: 'full' as const, price: item.price }];
+
   return (
     <article className={`item-card${item.available ? '' : ' is-unavailable'}`}>
       <div className="item-media">
@@ -233,12 +236,22 @@ function ItemCard({ item, qty, price, onQty }: { item: MenuItem; qty: number; pr
       <div className="item-body">
         <h3 className="item-name">{item.name}</h3>
         {item.description && <p className="item-desc">{item.description}</p>}
-        <div className="item-foot">
-          <span className="price">{price}</span>
-          {item.available && (qty > 0
-            ? <Quantity qty={qty} onChange={onQty} label={item.name} />
-            : <button className="qty-btn is-primary" onClick={() => onQty(1)} aria-label={`Add ${item.name}`}><Icon name="plus" size={16} /></button>)}
-        </div>
+        {portions.map(({ portion, price }) => {
+          const key = cartKey(item.id, portion);
+          const qty = cart[key] || 0;
+          const label = portions.length > 1 ? `${item.name} ${PORTION_LABEL[portion].toLowerCase()}` : item.name;
+          return (
+            <div key={portion} className={`item-foot${portions.length > 1 ? ' item-portion' : ''}`}>
+              <span>
+                {portions.length > 1 && <span className="item-portion-label">{PORTION_LABEL[portion]}</span>}
+                <span className="price">{money(price)}</span>
+              </span>
+              {item.available && (qty > 0
+                ? <Quantity qty={qty} onChange={(d) => onQty(key, d)} label={label} />
+                : <button className="qty-btn is-primary" onClick={() => onQty(key, 1)} aria-label={`Add ${label}`}><Icon name="plus" size={16} /></button>)}
+            </div>
+          );
+        })}
       </div>
     </article>
   );

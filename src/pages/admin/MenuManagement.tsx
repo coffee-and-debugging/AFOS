@@ -13,6 +13,8 @@ interface FormState {
   name: string;
   description: string;
   price: string;
+  /** Optional: empty = no half plate */
+  halfPrice: string;
   category: string;
 }
 
@@ -111,7 +113,10 @@ export default function MenuManagement() {
                         </td>
                         <td><strong>{item.name}</strong></td>
                         <td className="muted">{item.description}</td>
-                        <td className="num nowrap">{money(item.price)}</td>
+                        <td className="num nowrap">
+                          {money(item.price)}
+                          {item.halfPrice != null && <div className="subtle" style={{ fontSize: 'var(--text-xs)' }}>Half {money(item.halfPrice)}</div>}
+                        </td>
                         <td>
                           <button
                             className={`btn btn-sm ${item.available ? 'btn-primary' : 'btn-secondary'}`}
@@ -309,6 +314,7 @@ function ItemForm({ item, categories, stock, onSaved, onClose }: {
     name: item?.name ?? '',
     description: item?.description ?? '',
     price: item ? String(item.price) : '',
+    halfPrice: item?.halfPrice != null ? String(item.halfPrice) : '',
     category: item?.category ?? categories[0]?.slug ?? '',
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -355,7 +361,8 @@ function ItemForm({ item, categories, stock, onSaved, onClose }: {
       let imageUrl = imagePreview ? item?.imageUrl ?? null : null;
       if (imageFile) imageUrl = (await api.menu.uploadImage(imageFile, form.name)).imageUrl;
 
-      const payload = { ...form, price: Number(form.price), imageUrl };
+      if (form.halfPrice.trim() && !(Number(form.halfPrice) > 0)) throw new Error('Half plate price must be a positive number, or leave it empty');
+      const payload = { ...form, price: Number(form.price), halfPrice: form.halfPrice.trim() ? Number(form.halfPrice) : null, imageUrl };
       const savedItem = item ? await api.menu.update(item.id, payload) : await api.menu.create(payload);
       await api.menu.setRecipe(savedItem.id, recipe
         .filter((r) => r.stockItemId && Number(r.quantity) > 0)
@@ -395,12 +402,21 @@ function ItemForm({ item, categories, stock, onSaved, onClose }: {
               <input type="number" step="1" min="0" className="input" value={form.price} onChange={set('price')} required />
             </label>
             <label className="field spacer">
+              <span className="field-label">Half plate price <span className="subtle">(optional)</span></span>
+              <input type="number" step="1" min="0" className="input" value={form.halfPrice} onChange={set('halfPrice')} placeholder="No half plate" />
+            </label>
+            <label className="field spacer">
               <span className="field-label">Category</span>
               <select className="input" value={form.category} onChange={set('category')} required>
                 {categories.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
               </select>
             </label>
           </div>
+          {form.halfPrice.trim() !== '' && (
+            <p className="field-hint" style={{ marginTop: 'calc(-1 * var(--space-2))', marginBottom: 'var(--space-4)' }}>
+              Guests and the POS can choose Full or Half plate. The kitchen sees "Half plate" on the ticket, and a half plate uses half of the ingredients below.
+            </p>
+          )}
           <div className="field">
             <span className="field-label">Photo</span>
             {imagePreview && (

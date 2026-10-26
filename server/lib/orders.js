@@ -36,8 +36,9 @@ async function applyRecipeStock(tx, lines, sign, reason, refId) {
 
   const totals = new Map();
   for (const line of lines) {
+    const share = line.portion === 'half' ? 0.5 : 1; // a half plate uses half the recipe
     for (const r of recipes.filter((x) => x.menuItemId === Number(line.menuItemId))) {
-      totals.set(r.stockItemId, (totals.get(r.stockItemId) || 0) + r.quantity * line.quantity);
+      totals.set(r.stockItemId, (totals.get(r.stockItemId) || 0) + r.quantity * line.quantity * share);
     }
   }
   const alerts = [];
@@ -64,7 +65,11 @@ async function createOrder(tx, { items, type = 'dine_in', source, tableId, custo
     if (!table) throw new HttpError(404, 'Table not found');
   }
 
-  const requested = items.map((i) => ({ id: Number.parseInt(i.menuItemId, 10), quantity: Number(i.quantity) }));
+  const requested = items.map((i) => ({
+    id: Number.parseInt(i.menuItemId, 10),
+    quantity: Number(i.quantity),
+    portion: i.portion === 'half' ? 'half' : 'full',
+  }));
   for (const { id, quantity } of requested) {
     if (!Number.isInteger(id)) throw new HttpError(400, 'Invalid menu item');
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_QTY_PER_ITEM) {
@@ -73,11 +78,15 @@ async function createOrder(tx, { items, type = 'dine_in', source, tableId, custo
   }
 
   const menuItems = await tx.menuItem.findMany({ where: { id: { in: requested.map((r) => r.id) } } });
-  const lines = requested.map(({ id, quantity }) => {
+  const lines = requested.map(({ id, quantity, portion }) => {
     const m = menuItems.find((x) => x.id === id);
     if (!m) throw new HttpError(400, 'One of the items is no longer on the menu');
     if (!m.available) throw new HttpError(400, `${m.name} is not available right now`);
-    return { menuItemId: String(m.id), name: m.name, category: m.category, price: m.price, quantity, subtotal: round(m.price * quantity) };
+    if (portion === 'half' && m.halfPrice == null) throw new HttpError(400, `${m.name} is not available as a half plate`);
+    const price = portion === 'half' ? m.halfPrice : m.price;
+    // The portion is part of the line's name, so kitchen tickets, bills and reports all show it
+    const name = portion === 'half' ? `${m.name} (Half plate)` : m.name;
+    return { menuItemId: String(m.id), name, category: m.category, price, quantity, subtotal: round(price * quantity), portion };
   });
 
   const settings = await getSettings(tx);

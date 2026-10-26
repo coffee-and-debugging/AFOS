@@ -33,6 +33,14 @@ function parsePrice(value) {
   return price;
 }
 
+/** Optional half-plate price: empty/null turns half plates off for the item. */
+function parseHalfPrice(value) {
+  if (value === null || value === '' || value === undefined) return null;
+  const price = Number(value);
+  if (!Number.isFinite(price) || price <= 0) throw new HttpError(400, 'Half plate price must be a positive number, or leave it empty');
+  return price;
+}
+
 function parseId(value) {
   const id = Number.parseInt(value, 10);
   if (!Number.isInteger(id)) throw new HttpError(400, 'Invalid menu item id');
@@ -49,7 +57,7 @@ router.get('/', asyncHandler(async (req, res) => {
 }));
 
 router.post('/', requireAuth(['admin']), asyncHandler(async (req, res) => {
-  const { name, description, price, category, imageUrl } = req.body || {};
+  const { name, description, price, halfPrice, category, imageUrl } = req.body || {};
   if (!name || price === undefined || !category) {
     throw new HttpError(400, 'Name, price and category are required');
   }
@@ -58,6 +66,7 @@ router.post('/', requireAuth(['admin']), asyncHandler(async (req, res) => {
       name: String(name).trim(),
       description: description || '',
       price: parsePrice(price),
+      halfPrice: parseHalfPrice(halfPrice),
       category,
       available: true,
       imageUrl: imageUrl || null,
@@ -67,13 +76,14 @@ router.post('/', requireAuth(['admin']), asyncHandler(async (req, res) => {
 }));
 
 router.put('/:id', requireAuth(['admin']), asyncHandler(async (req, res) => {
-  const { name, description, price, category, available, imageUrl } = req.body || {};
+  const { name, description, price, halfPrice, category, available, imageUrl } = req.body || {};
   const item = await prisma.menuItem.update({
     where: { id: parseId(req.params.id) },
     data: {
       ...(name !== undefined && { name: String(name).trim() }),
       ...(description !== undefined && { description }),
       ...(price !== undefined && { price: parsePrice(price) }),
+      ...(halfPrice !== undefined && { halfPrice: parseHalfPrice(halfPrice) }),
       ...(category !== undefined && { category }),
       ...(available !== undefined && { available: Boolean(available) }),
       ...(imageUrl !== undefined && { imageUrl: imageUrl || null }),

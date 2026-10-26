@@ -11,10 +11,9 @@ import { ReceiptModal } from '../../components/Receipt';
 import { EmptyState, ErrorState, LoadingState } from '../../components/States';
 import { useLiveReload, usePolling, useRestaurant, useToast } from '../../hooks';
 import { billLabel, orderPlace, timeSince } from '../../lib/format';
+import { bumpCart, cartKey, cartLines, hasHalf, orderItems, PORTION_LABEL, type Cart } from '../../lib/portions';
 import { computeTotals } from '../../lib/pricing';
 import type { Order, OrderType, StaffPaymentMethod } from '../../types';
-
-type Cart = Record<number, number>;
 
 const loadMenu = () => Promise.all([api.menu.getAll(), api.categories.getAll()]);
 const loadOpenBills = () => api.orders.list({ unpaid: true, limit: 200 });
@@ -61,20 +60,13 @@ export default function Pos() {
   const visible = items.filter((m) =>
     (category === 'all' || m.category === category) && (!term || m.name.toLowerCase().includes(term)));
 
-  const lines = items.filter((m) => cart[m.id] > 0);
-  const count = lines.reduce((s, m) => s + cart[m.id], 0);
-  const totals = computeTotals(lines.reduce((s, m) => s + m.price * cart[m.id], 0), Number(discount) || 0, type, restaurant);
+  const lines = cartLines(items, cart);
+  const count = lines.reduce((s, l) => s + l.qty, 0);
+  const totals = computeTotals(lines.reduce((s, l) => s + l.unitPrice * l.qty, 0), Number(discount) || 0, type, restaurant);
   const openBills = (bills.data ?? []).filter((o) => !billTable || o.tableId === billTable);
 
   // Delta-based so rapid taps are never lost to a stale render
-  const bump = (id: number, delta: number) =>
-    setCart((prev) => {
-      const next = { ...prev };
-      const qty = Math.min((prev[id] || 0) + delta, 50);
-      if (qty <= 0) delete next[id];
-      else next[id] = qty;
-      return next;
-    });
+  const bump = (key: string, delta: number) => setCart((prev) => bumpCart(prev, key, delta));
 
   function reset() {
     setCart({});
@@ -98,7 +90,7 @@ export default function Pos() {
       const order = await api.orders.createPos({
         type,
         tableId: type === 'dine_in' ? tableId : undefined,
-        items: lines.map((m) => ({ menuItemId: String(m.id), quantity: cart[m.id] })),
+        items: orderItems(lines),
         customerNote: note,
         discount: Number(discount) || 0,
         payWith,
@@ -135,16 +127,30 @@ export default function Pos() {
             <div className="card"><EmptyState icon="menu" title="Nothing found" text="Try another category or search term." /></div>
           ) : (
             <div className="pos-tiles">
-              {visible.map((m) => (
-                <button key={m.id} className="pos-tile" disabled={!m.available} onClick={() => bump(m.id, 1)} title={m.available ? `Add ${m.name}` : 'Not Available'}>
-                  <div className="pos-tile-media"><FoodVisual imageUrl={m.imageUrl} category={m.category} iconSize={34} /></div>
-                  <div className="pos-tile-body">
-                    <div className="pos-tile-name">{m.name}</div>
-                    <div className="pos-tile-price">{m.available ? money(m.price) : 'Not Available'}</div>
+              {visible.map((m) => {
+                const full = cart[cartKey(m.id)] || 0;
+                const half = cart[cartKey(m.id, 'half')] || 0;
+                const tile = (
+                  <button className="pos-tile" disabled={!m.available} onClick={() => bump(cartKey(m.id), 1)} title={m.available ? `Add ${m.name}${hasHalf(m) ? ' (full plate)' : ''}` : 'Not Available'}>
+                    <div className="pos-tile-media"><FoodVisual imageUrl={m.imageUrl} category={m.category} iconSize={34} /></div>
+                    <div className="pos-tile-body">
+                      <div className="pos-tile-name">{m.name}</div>
+                      <div className="pos-tile-price">{m.available ? money(m.price) : 'Not Available'}</div>
+                    </div>
+                    {full + half > 0 && <span className="pos-tile-qty">{full + half}</span>}
+                  </button>
+                );
+                if (!hasHalf(m)) return <div key={m.id} className="pos-tile-wrap">{tile}</div>;
+                // Tapping the tile adds a full plate; the Half button below adds a half plate
+                return (
+                  <div key={m.id} className="pos-tile-wrap">
+                    {tile}
+                    <button className="pos-half-btn" disabled={!m.available} onClick={() => bump(cartKey(m.id, 'half'), 1)} aria-label={`Add ${m.name} half plate`}>
+                      + Half · {money(m.halfPrice!)}{half > 0 && <span className="pos-half-qty">{half}</span>}
+                    </button>
                   </div>
-                  {cart[m.id] > 0 && <span className="pos-tile-qty">{cart[m.id]}</span>}
-                </button>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
@@ -187,18 +193,21 @@ export default function Pos() {
                   <EmptyState icon="burger" title="Ticket is empty" text="Tap menu items to add them." />
                 ) : (
                   <div>
-                    {lines.map((m) => (
-                      <div key={m.id} className="ticket-line">
+                    {lines.map(({ key, item: m, portion, qty, unitPrice }) => (
+                      <div key={key} className="ticket-line">
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: 600 }}>{m.name}</div>
-                          <div className="subtle">{money(m.price)}</div>
+                          <div style={{ fontWeight: 600 }}>
+                            {m.name}
+                            {hasHalf(m) && <span className={`portion-tag is-${portion}`} style={{ marginLeft: 'var(--space-2)' }}>{PORTION_LABEL[portion]}</span>}
+                          </div>
+                          <div className="subtle">{money(unitPrice)}</div>
                         </div>
                         <div className="qty">
-                          <button className="qty-btn" onClick={() => bump(m.id, -1)} aria-label={`Remove one ${m.name}`}>−</button>
-                          <span className="qty-value">{cart[m.id]}</span>
-                          <button className="qty-btn is-primary" onClick={() => bump(m.id, 1)} aria-label={`Add one ${m.name}`}>+</button>
+                          <button className="qty-btn" onClick={() => bump(key, -1)} aria-label={`Remove one ${m.name}`}>−</button>
+                          <span className="qty-value">{qty}</span>
+                          <button className="qty-btn is-primary" onClick={() => bump(key, 1)} aria-label={`Add one ${m.name}`}>+</button>
                         </div>
-                        <span className="nowrap" style={{ fontWeight: 700, minWidth: 72, textAlign: 'right' }}>{money(m.price * cart[m.id])}</span>
+                        <span className="nowrap" style={{ fontWeight: 700, minWidth: 72, textAlign: 'right' }}>{money(unitPrice * qty)}</span>
                       </div>
                     ))}
                     <div className="grid-2 section-gap" style={{ gap: 'var(--space-2)' }}>

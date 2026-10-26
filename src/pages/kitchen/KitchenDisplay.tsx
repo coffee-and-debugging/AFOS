@@ -202,7 +202,7 @@ function NewOrderAlert({ order, more, busy, onAcknowledge, onStart }: {
         </div>
         <ul className="ticket-items">
           {order.items.map((item, i) => (
-            <li key={i}><span>{item.name}</span><span className="ticket-qty">× {item.quantity}</span></li>
+            <li key={i}><span>{item.portion === 'half' && <span className="ticket-half">HALF</span>}{item.name}</span><span className="ticket-qty">× {item.quantity}</span></li>
           ))}
         </ul>
         {order.customerNote && <p className="ticket-note">Note: {order.customerNote}</p>}
@@ -233,7 +233,7 @@ function Ticket({ order, isNew, busy, onAdvance }: { order: Order; isNew: boolea
 
       <ul className="ticket-items">
         {order.items.map((item, i) => (
-          <li key={i}><span>{item.name}</span><span className="ticket-qty">× {item.quantity}</span></li>
+          <li key={i}><span>{item.portion === 'half' && <span className="ticket-half">HALF</span>}{item.name}</span><span className="ticket-qty">× {item.quantity}</span></li>
         ))}
       </ul>
 

@@ -26,6 +26,8 @@ export interface MenuItem {
   name: string;
   description: string;
   price: number;
+  /** Optional half-plate price; when set, the item can be ordered as a half plate */
+  halfPrice?: number | null;
   category: string;
   available: boolean;
   imageUrl?: string | null;
@@ -52,7 +54,11 @@ export interface OrderItem {
   price: number;
   quantity: number;
   subtotal: number;
+  /** Half plates also say "(Half plate)" in the name */
+  portion?: Portion;
 }
+
+export type Portion = 'full' | 'half';
 
 export type OrderStatus = 'pending' | 'cooking' | 'serving' | 'completed' | 'cancelled';
 export type PaymentStatus = 'unpaid' | 'paid' | 'pending_counter';
