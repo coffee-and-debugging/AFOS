@@ -1,12 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, saveAuth } from '../api/client';
+import { liveEvents } from '../api/events';
 import Icon from '../components/Icon';
+import LoginScene from '../components/LoginScene';
 import PasswordInput from '../components/PasswordInput';
 import { OfflineBanner } from '../components/States';
 import { useRestaurant } from '../hooks';
 import type { Role } from '../types';
-
 const HOME: Record<Role, string> = { admin: '/dashboard', cashier: '/pos', chef: '/kitchen' };
 
 export default function Login() {
@@ -25,6 +26,7 @@ export default function Login() {
     try {
       const res = await api.auth.login(username, password);
       saveAuth(res.token, res.user);
+      liveEvents.close(); // the next screen reconnects with the staff stream instead of the guest one
       navigate(HOME[res.user.role] ?? '/', { replace: true });
     } catch (err) {
       setError((err as Error).message);
@@ -38,14 +40,18 @@ export default function Login() {
       <OfflineBanner />
       <div className="auth-page">
         <section className="auth-poster" aria-hidden="true">
-          <div className="row" style={{ gap: 'var(--space-3)' }}>
+          <div className="auth-brand">
             <span className="brand-mark"><Icon name="flame" size={22} /></span>
             <span className="brand-name">{restaurant.name}</span>
           </div>
-          <div>
+
+          <div className="auth-pitch">
             <div className="hero-kicker">Restaurant OS</div>
-            <div className="hero-title">Run your<br />restaurant<br />in one place</div>
+            <div className="auth-title">Run your restaurant<br />in one place</div>
+
+            <div className="auth-scene"><LoginScene /></div>
           </div>
+
           <p className="subtle">{restaurant.name} · v{__APP_VERSION__}</p>
         </section>
 

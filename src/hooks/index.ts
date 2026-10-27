@@ -49,6 +49,12 @@ export function useIsClamped<T extends HTMLElement>(text: string) {
   return [ref, clamped] as const;
 }
 
+/** Guest pages: also get live updates for these orders (staff screens already receive every order). */
+export function useWatchOrders(ids: string[]) {
+  const key = ids.filter(Boolean).join(',');
+  useEffect(() => (key ? liveEvents.watchOrders(key.split(',')) : undefined), [key]);
+}
+
 export function useConnectivity() {
   return useSyncExternalStore(connectivityStore.subscribe, connectivityStore.getSnapshot);
 }
@@ -59,10 +65,13 @@ interface PollingState<T> {
   loading: boolean;
 }
 
+// Any of these means data on screen may be stale; every loader refreshes itself at once.
+const LIVE_RELOAD: LiveEventName[] = ['data.changed', 'order.created', 'order.updated'];
+
 /**
- * Loads data and optionally refreshes it on an interval. On failure the last good
- * data is kept, so a brief API outage never blanks the screen.
- * `fetcher` must be stable (wrap it in useCallback).
+ * Loads data and keeps it current: it reloads the moment anything is saved anywhere (live events),
+ * and optionally also on an interval as a fallback. On failure the last good data is kept, so a
+ * brief API outage never blanks the screen. `fetcher` must be stable (wrap it in useCallback).
  */
 export function usePolling<T>(fetcher: () => Promise<T>, intervalMs?: number) {
   const [state, setState] = useState<PollingState<T>>({ loading: true });
@@ -91,6 +100,8 @@ export function usePolling<T>(fetcher: () => Promise<T>, intervalMs?: number) {
   const setData = useCallback((update: (prev: T) => T) => {
     setState((s) => (s.data === undefined ? s : { ...s, data: update(s.data) }));
   }, []);
+
+  useLiveReload(load, LIVE_RELOAD, 300);
 
   return { ...state, reload: load, retry, setData };
 }

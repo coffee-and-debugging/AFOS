@@ -280,6 +280,8 @@ export interface LiveEvents {
   'chat.message': ChatMessage;
   /** `role` read everything `with` sent it */
   'chat.read': { role: Role; with: Role };
+  /** Something was saved (menu, stock, staff, settings …); `resource` is its API area, e.g. "stock" */
+  'data.changed': { resource: string; at: string };
 }
 
 export interface AuthUser {

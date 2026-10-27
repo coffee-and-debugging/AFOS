@@ -7,7 +7,7 @@ import GuestHeader from '../../components/GuestHeader';
 import Icon from '../../components/Icon';
 import Modal from '../../components/Modal';
 import { EmptyState, ErrorState, LoadingState } from '../../components/States';
-import { usePolling, useRestaurant, useToast } from '../../hooks';
+import { usePolling, useRestaurant, useToast, useWatchOrders } from '../../hooks';
 import { billLabel } from '../../lib/format';
 import { bumpCart, cartKey, cartLines, hasHalf, orderItems, PORTION_LABEL, type Cart } from '../../lib/portions';
 import type { MenuItem, Order } from '../../types';
@@ -52,6 +52,7 @@ export default function CustomerPage() {
       .filter((o) => o.status !== 'cancelled' && (o.status !== 'completed' || o.paymentStatus !== 'paid'));
   }, [tableId]);
   const tracked = usePolling(loadTracked, 6000);
+  useWatchOrders(savedOrderIds(tableId));
 
   const [cart, setCart] = useState<Cart>({});
   const [category, setCategory] = useState('all');

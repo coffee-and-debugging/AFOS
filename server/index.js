@@ -68,6 +68,7 @@ app.get('/api/health', health);
 app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false }));
 app.use('/api', rateLimit({ windowMs: 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false }));
 app.use(express.json({ limit: '1mb' }));
+app.use('/api', events.broadcastChanges);
 
 fs.mkdirSync(config.uploadsDir, { recursive: true });
 app.use('/uploads', express.static(config.uploadsDir, { maxAge: '1h' }));
@@ -85,8 +86,10 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/staff', require('./routes/staff'));
 app.use('/api/payments', require('./routes/payments'));
 app.use('/api/chat', require('./routes/chat'));
-// Live updates for staff screens (new orders → kitchen bell, low-stock popups)
+// Live updates for staff screens (new orders → kitchen bell, low-stock popups, any data change)
 app.get('/api/events', requireAuth(ROLES.STAFF), events.stream);
+// Live updates for guest pages: public menu/table changes and their own orders only
+app.get('/api/events/guest', events.guestStream);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
 
 // When the frontend has been built (npm run build), serve it with an SPA fallback

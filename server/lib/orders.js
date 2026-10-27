@@ -16,6 +16,21 @@ async function getSettings(db) {
 }
 
 /** Discount → service charge (dine-in only) → tax on (subtotal − discount + service). */
+/**
+ * Splits one discount across several orders in proportion to their subtotals (for billing a
+ * table's orders together); the last order takes the rounding remainder. Mirrors src/lib/pricing.ts.
+ */
+function splitDiscount(subtotals, discount) {
+  const total = subtotals.reduce((s, x) => s + x, 0);
+  const wanted = Math.min(Math.max(round(Number(discount) || 0), 0), round(total));
+  let left = wanted;
+  return subtotals.map((sub, i) => {
+    const share = i === subtotals.length - 1 ? left : Math.min(round(total ? (wanted * sub) / total : 0), left);
+    left = round(left - share);
+    return share;
+  });
+}
+
 function computeTotals(subtotal, discount, type, settings) {
   const disc = Math.min(Math.max(round(Number(discount) || 0), 0), subtotal);
   const base = subtotal - disc;
@@ -109,4 +124,4 @@ async function createOrder(tx, { items, type = 'dine_in', source, tableId, custo
   return { order, stockAlerts };
 }
 
-module.exports = { round, orderInclude, getSettings, computeTotals, applyRecipeStock, createOrder };
+module.exports = { round, orderInclude, getSettings, computeTotals, splitDiscount, applyRecipeStock, createOrder };

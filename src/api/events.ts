@@ -20,6 +20,9 @@ let controller: AbortController | null = null;
 let attempt = 0;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
+// Guests (no sign-in) use the guest stream, which only carries public changes and these orders
+const watchedOrders = new Map<string, number>();
+let connectedOrders = '';
 
 function setStatus(next: LiveStatus) {
   if (next === status) return;
@@ -51,9 +54,12 @@ function dispatch(block: string) {
   });
 }
 
+const guestOrderKey = () => [...watchedOrders.keys()].sort().join(',');
+
 async function connect() {
   const token = getToken();
-  if (!token) return setStatus('down');
+  connectedOrders = guestOrderKey();
+  const url = token ? `${API_BASE}/events` : `${API_BASE}/events/guest?orders=${encodeURIComponent(connectedOrders)}`;
   const ctrl = new AbortController();
   controller = ctrl;
   setStatus('connecting');
@@ -65,8 +71,8 @@ async function connect() {
   };
 
   try {
-    const res = await fetch(`${API_BASE}/events`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'text/event-stream' },
+    const res = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}`, Accept: 'text/event-stream' } : { Accept: 'text/event-stream' },
       cache: 'no-store',
       signal: ctrl.signal,
     });
@@ -133,6 +139,24 @@ export const liveEvents = {
     return () => statusListeners.delete(listener);
   },
   getStatus: () => status,
+  /** Guest pages: also receive live updates for these orders. Returns the stop function. */
+  watchOrders(ids: string[]) {
+    ids.forEach((id) => watchedOrders.set(id, (watchedOrders.get(id) ?? 0) + 1));
+    const changed = () => {
+      // Only the guest stream is filtered by order; reconnect it with the new list
+      if (getToken() || !controller || guestOrderKey() === connectedOrders) return;
+      close();
+      open();
+    };
+    changed();
+    return () => {
+      ids.forEach((id) => {
+        const n = (watchedOrders.get(id) ?? 1) - 1;
+        if (n > 0) watchedOrders.set(id, n);
+        else watchedOrders.delete(id);
+      });
+    };
+  },
   /** Drop the connection immediately, e.g. on logout. */
   close,
 };

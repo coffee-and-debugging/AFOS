@@ -6,7 +6,7 @@ import Icon, { type IconName } from '../../components/Icon';
 import Modal from '../../components/Modal';
 import OnlinePayment from '../../components/OnlinePayment';
 import { EmptyState, ErrorState, LoadingState } from '../../components/States';
-import { usePolling, useRestaurant } from '../../hooks';
+import { usePolling, useRestaurant, useWatchOrders } from '../../hooks';
 import { billLabel, formatTime, orderPlace, PAYMENT_LABEL } from '../../lib/format';
 import type { OrderStatus as Status } from '../../types';
 import type { PaymentNotice } from './PaymentReturn';
@@ -32,6 +32,7 @@ const MESSAGE: Record<Status, { tone: string; text: string }> = {
 
 export default function OrderStatus() {
   const { orderId = '' } = useParams<{ orderId: string }>();
+  useWatchOrders([orderId]);
   // Set by the payment return page with the outcome of an online payment
   const notice = (useLocation().state as { notice?: PaymentNotice } | null)?.notice;
   const { money } = useRestaurant();

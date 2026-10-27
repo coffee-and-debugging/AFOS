@@ -226,6 +226,9 @@ export const api = {
       request<Order>(`/orders/${id}/payment`, json('POST', { method })),
     pay: (id: string, method: StaffPaymentMethod, discount?: number) =>
       request<Order>(`/orders/${id}/pay`, json('POST', { method, discount })),
+    /** Settle several orders together (e.g. a whole table); the discount is split by subtotal */
+    payMany: (ids: string[], method: StaffPaymentMethod, discount?: number) =>
+      request<Order[]>('/orders/pay-many', json('POST', { ids, method, discount })),
   },
 
   chat: {

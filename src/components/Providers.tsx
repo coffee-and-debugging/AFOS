@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from '../api/client';
+import { liveEvents } from '../api/events';
 import { DEFAULT_RESTAURANT, RestaurantContext, ToastContext } from '../lib/contexts';
 import type { Restaurant } from '../types';
 
@@ -19,6 +20,11 @@ function RestaurantProvider({ children }: { children: ReactNode }) {
     load(2000);
     return () => { cancelled = true; clearTimeout(timer); };
   }, []);
+
+  // Settings saved on another screen (name, tax, service charge …) apply here at once
+  useEffect(() => liveEvents.subscribe('data.changed', ({ resource }) => {
+    if (resource === 'restaurant') api.restaurant.get().then(setRestaurant, () => {});
+  }), []);
 
   useEffect(() => {
     document.title = restaurant.name;

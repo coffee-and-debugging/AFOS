@@ -2,7 +2,7 @@ const express = require('express');
 const prisma = require('../prisma');
 const { requireAuth, ROLES } = require('../middleware/auth');
 const { HttpError, asyncHandler } = require('../lib/http');
-const { orderInclude, getSettings, computeTotals, applyRecipeStock, createOrder } = require('../lib/orders');
+const { orderInclude, getSettings, computeTotals, splitDiscount, applyRecipeStock, createOrder } = require('../lib/orders');
 const { notifyLowStock } = require('../lib/stock');
 const events = require('../lib/events');
 
@@ -122,6 +122,39 @@ router.post('/:id/payment', asyncHandler(async (req, res) => {
 }));
 
 // Settle a bill at the counter — front desk. Optional discount is applied before charging.
+// Settle several orders in one go, e.g. every open bill of a table. One discount is split
+// across them by subtotal. All or nothing: if any order can't be paid, none are.
+router.post('/pay-many', requireAuth(ROLES.FRONT), asyncHandler(async (req, res) => {
+  const { ids, method, discount } = req.body || {};
+  if (!STAFF_METHODS.includes(method)) throw new HttpError(400, 'Choose cash, card, eSewa or Khalti');
+  if (!Array.isArray(ids) || ids.length === 0) throw new HttpError(400, 'Choose the orders to bill');
+  const unique = [...new Set(ids.map(String))];
+
+  const orders = await prisma.$transaction(async (tx) => {
+    const existing = await tx.order.findMany({ where: { id: { in: unique } }, orderBy: { createdAt: 'asc' } });
+    if (existing.length !== unique.length) throw new HttpError(404, 'One of the orders no longer exists');
+    for (const o of existing) {
+      if (o.paymentStatus === 'paid') throw new HttpError(400, `Bill #${String(o.billNo).padStart(5, '0')} is already paid`);
+      if (o.status === 'cancelled') throw new HttpError(409, `Bill #${String(o.billNo).padStart(5, '0')} was cancelled`);
+    }
+    const settings = discount === undefined ? null : await getSettings(tx);
+    const shares = discount === undefined ? [] : splitDiscount(existing.map((o) => o.subtotal), discount);
+    const paidAt = new Date();
+    const updated = [];
+    for (const [i, o] of existing.entries()) {
+      const totals = settings ? computeTotals(o.subtotal, shares[i], o.type, settings) : {};
+      updated.push(await tx.order.update({
+        where: { id: o.id },
+        data: { ...totals, paymentStatus: 'paid', paymentMethod: method, paidAt },
+        include: orderInclude,
+      }));
+    }
+    return updated;
+  });
+  orders.forEach((o) => events.publish('order.updated', o));
+  res.json(orders);
+}));
+
 router.post('/:id/pay', requireAuth(ROLES.FRONT), asyncHandler(async (req, res) => {
   const { method, discount } = req.body || {};
   if (!STAFF_METHODS.includes(method)) throw new HttpError(400, 'Choose cash, card, eSewa or Khalti');
