@@ -255,8 +255,10 @@ function ItemCard({ item, cart, money, onQty, onDetails }: {
       </div>
       <div className="item-body">
         <h3 className="item-name">{item.name}</h3>
-        {/* Always present (even empty) so every card has the same text area; "See more" opens the full text and ingredients */}
-        <ExpandableText text={item.description} className="item-desc" onMore={onDetails} forceMore={!!item.ingredients} reserve />
+        {/* "See more" opens the full description and ingredients; nothing is rendered when there is neither */}
+        {item.description
+          ? <ExpandableText text={item.description} className="item-desc" onMore={onDetails} forceMore={!!item.ingredients} />
+          : item.ingredients && <button type="button" className="link-button see-more" onClick={onDetails}>See more</button>}
         {portions.map(({ portion, price }) => {
           const key = cartKey(item.id, portion);
           const qty = cart[key] || 0;
