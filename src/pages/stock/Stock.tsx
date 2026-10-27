@@ -232,6 +232,7 @@ function AdjustForm({ item, onClose, onSaved }: { item: StockItem; onClose: () =
     e.preventDefault();
     const n = Number(qty);
     if (!(n > 0)) return toast.error('Enter a quantity greater than zero');
+    if (tooMuch) return toast.error(`Only ${formatStock(Math.max(item.quantity, 0), item)} on hand`);
     setSaving(true);
     try {
       await api.stock.adjust(item.id, mode === 'add' ? n : -n, mode === 'wastage' ? 'wastage' : 'adjustment', note, inPacks);
@@ -245,6 +246,7 @@ function AdjustForm({ item, onClose, onSaved }: { item: StockItem; onClose: () =
   }
 
   const after = item.quantity + (mode === 'add' ? 1 : -1) * (Number(qty) || 0) * size;
+  const tooMuch = mode !== 'add' && after < -1e-6; // on hand never goes below zero
 
   return (
     <Modal
@@ -252,7 +254,7 @@ function AdjustForm({ item, onClose, onSaved }: { item: StockItem; onClose: () =
       onClose={onClose}
       footer={<>
         <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" type="submit" form="adjust-form" disabled={saving}>{saving ? 'Saving…' : 'Update inventory'}</button>
+        <button className="btn btn-primary" type="submit" form="adjust-form" disabled={saving || tooMuch}>{saving ? 'Saving…' : 'Update inventory'}</button>
       </>}
     >
       <form id="adjust-form" onSubmit={submit}>
