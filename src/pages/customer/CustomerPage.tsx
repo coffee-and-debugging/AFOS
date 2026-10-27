@@ -58,6 +58,8 @@ export default function CustomerPage() {
   const [note, setNote] = useState('');
   const [showCart, setShowCart] = useState(false);
   const [details, setDetails] = useState<MenuItem | null>(null);
+  /** null = search bar closed */
+  const [search, setSearch] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
 
   if (menu.loading && !menu.data) return <><GuestHeader /><LoadingState label="Loading the menu…" /></>;
@@ -76,10 +78,17 @@ export default function CustomerPage() {
   const cartItems = cartLines(items, cart);
   const cartCount = cartItems.reduce((s, l) => s + l.qty, 0);
   const cartTotal = cartItems.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+  const term = (search ?? '').trim().toLowerCase();
+  const matches = (m: MenuItem) => !term || [m.name, m.description, m.ingredients].some((t) => t?.toLowerCase().includes(term));
   const sections = categories
     .filter((c) => category === 'all' || c.slug === category)
-    .map((c) => ({ ...c, items: items.filter((m) => m.category === c.slug) }))
+    .map((c) => ({ ...c, items: items.filter((m) => m.category === c.slug && matches(m)) }))
     .filter((c) => c.items.length > 0);
+
+  function openSearch() {
+    setCategory('all'); // search the whole menu; tabs still narrow the results
+    setSearch('');
+  }
 
   async function placeOrder() {
     setPlacing(true);
@@ -108,14 +117,39 @@ export default function CustomerPage() {
       <GuestHeader
         chip={`Table ${tableNumber}`}
         action={
-          <button className="icon-btn" onClick={() => setShowCart(true)} aria-label={`View cart, ${cartCount} items`}>
-            <Icon name="cart" />
-            {cartCount > 0 && <span className="icon-btn-badge">{cartCount}</span>}
-          </button>
+          <div className="guest-actions">
+            <button className="icon-btn" onClick={() => (search === null ? openSearch() : setSearch(null))} aria-label={search === null ? 'Search the menu' : 'Close search'} aria-expanded={search !== null}>
+              <Icon name={search === null ? 'search' : 'close'} />
+            </button>
+            <button className="icon-btn" onClick={() => setShowCart(true)} aria-label={`View cart, ${cartCount} items`}>
+              <Icon name="cart" />
+              {cartCount > 0 && <span className="icon-btn-badge">{cartCount}</span>}
+            </button>
+          </div>
         }
       />
 
       <nav className="guest-tabs" aria-label="Menu categories">
+        {search !== null && (
+          <div className="guest-search" role="search">
+            <input
+              className="input input-search"
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && setSearch(null)}
+              placeholder="Search dishes"
+              aria-label="Search the menu"
+              enterKeyHint="search"
+              autoFocus
+            />
+            {search && (
+              <button className="guest-search-clear" onClick={() => setSearch('')} aria-label="Clear search">
+                <Icon name="close" size={16} />
+              </button>
+            )}
+          </div>
+        )}
         <div className="guest-tabs-inner">
           <div className="segmented" role="tablist">
             {[{ slug: 'all', name: 'All' }, ...categories].map((c) => (
@@ -146,7 +180,9 @@ export default function CustomerPage() {
           </section>
         )}
 
-        {sections.length === 0 && <EmptyState icon="menu" title="Menu coming right up" text="Please check back in a moment." />}
+        {sections.length === 0 && (term
+          ? <EmptyState icon="menu" title={`No dishes match “${search?.trim()}”`} />
+          : <EmptyState icon="menu" title="Menu coming right up" text="Please check back in a moment." />)}
 
         {sections.map((section) => (
           <section key={section.slug}>
