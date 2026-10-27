@@ -72,7 +72,7 @@ router.put('/:id', requireAuth(ROLES.ADMIN), asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   const data = parseItem(req.body);
   const existing = await prisma.stockItem.findUnique({ where: { id } });
-  if (!existing) throw new HttpError(404, 'Stock item not found');
+  if (!existing) throw new HttpError(404, 'Inventory item not found');
   // Renaming the base unit would silently reinterpret every quantity; that needs /convert.
   const hasHistory = existing.quantity !== 0
     || (await prisma.stockMovement.count({ where: { stockItemId: id } })) > 0
@@ -101,11 +101,11 @@ router.post('/:id/adjust', requireAuth(ROLES.KITCHEN), asyncHandler(async (req, 
   const entered = Number(req.body?.change);
   if (!Number.isFinite(entered) || entered === 0) throw new HttpError(400, 'Enter a quantity to add or remove');
   if (!ADJUST_REASONS.includes(reason)) throw new HttpError(400, 'Reason must be adjustment or wastage');
-  if (reason === 'wastage' && entered > 0) throw new HttpError(400, 'Wastage must remove stock');
+  if (reason === 'wastage' && entered > 0) throw new HttpError(400, 'Wastage must remove inventory');
 
   const { item, alert } = await prisma.$transaction(async (tx) => {
     const existing = await tx.stockItem.findUnique({ where: { id } });
-    if (!existing) throw new HttpError(404, 'Stock item not found');
+    if (!existing) throw new HttpError(404, 'Inventory item not found');
     const change = toBaseUnits(existing, entered, Boolean(req.body?.inPacks));
     const packNote = req.body?.inPacks ? ` [${entered} ${existing.packUnit}]` : '';
     const note = `${String(req.body?.note || '').slice(0, 200)}${packNote} (by ${req.user.name})`.trim();
@@ -130,7 +130,7 @@ router.post('/:id/convert', requireAuth(ROLES.ADMIN), asyncHandler(async (req, r
 
   const item = await prisma.$transaction(async (tx) => {
     const existing = await tx.stockItem.findUnique({ where: { id } });
-    if (!existing) throw new HttpError(404, 'Stock item not found');
+    if (!existing) throw new HttpError(404, 'Inventory item not found');
     if (existing.unit === unit) throw new HttpError(400, `Already counted in ${unit}`);
     const packUnit = String(req.body?.packUnit ?? existing.unit).trim() || null;
 

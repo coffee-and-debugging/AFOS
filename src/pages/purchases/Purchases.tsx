@@ -15,7 +15,7 @@ export default function Purchases() {
   const [tab, setTab] = useState<'purchases' | 'suppliers'>('purchases');
   return (
     <>
-      <PageHeader icon="purchases" title="Purchases" subtitle="Goods bought from suppliers. Recording a purchase adds it to stock." />
+      <PageHeader icon="purchases" title="Purchases" />
       <div className="toolbar">
         <div className="segmented" role="tablist">
           <button role="tab" aria-selected={tab === 'purchases'} className="segmented-item" onClick={() => setTab('purchases')}><Icon name="purchases" size={16} /> Purchases</button>
@@ -51,7 +51,7 @@ function PurchaseList() {
   }
 
   async function voidPurchase(p: Purchase) {
-    if (!confirm('Void this purchase? Its quantities will be removed from stock.')) return;
+    if (!confirm('Void this purchase? Its quantities will be removed from inventory.')) return;
     try {
       await api.purchases.delete(p.id);
       setViewing(null);
@@ -81,7 +81,7 @@ function PurchaseList() {
 
       <section className="card">
         {loading && !purchases ? <LoadingState /> : !purchases ? <ErrorState error={error} onRetry={retry} /> : list.length === 0 ? (
-          <EmptyState icon="purchases" title="No purchases in this period" text="Record deliveries from suppliers to keep stock accurate." />
+          <EmptyState icon="purchases" title="No purchases in this period" />
         ) : (
           <div className="table-wrap">
             <table>
@@ -109,7 +109,7 @@ function PurchaseList() {
           suppliers={refs.data[0]}
           stock={refs.data[1]}
           onClose={() => setCreating(false)}
-          onSaved={() => { setCreating(false); reload(); refs.reload(); toast.success('Purchase recorded and stock updated'); }}
+          onSaved={() => { setCreating(false); reload(); refs.reload(); toast.success('Purchase recorded and inventory updated'); }}
         />
       )}
 
@@ -219,7 +219,7 @@ function PurchaseForm({ suppliers, stock, onClose, onSaved }: { suppliers: Suppl
         </div>
 
         <div className="field-label" style={{ marginBottom: 'var(--space-2)' }}>Items</div>
-        {stock.length === 0 && <p className="alert alert-warning">Add stock items on the Stock page first.</p>}
+        {stock.length === 0 && <p className="alert alert-warning">Add items on the Inventory page first.</p>}
         {lines.map((l, i) => {
           const item = stock.find((s) => String(s.id) === l.stockItemId);
           return (
@@ -234,7 +234,7 @@ function PurchaseForm({ suppliers, stock, onClose, onSaved }: { suppliers: Suppl
                   const cost = s ? (inPacks ? s.costPerUnit * s.unitsPerPack! : s.costPerUnit) : 0;
                   setLine(i, { stockItemId: e.target.value, inPacks, unitCost: s ? String(Math.round(cost * 100) / 100) : '' });
                 }}
-                aria-label="Stock item"
+                aria-label="Inventory item"
               >
                 <option value="">Choose item…</option>
                 {stock.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.unit})</option>)}
@@ -305,7 +305,7 @@ function SupplierList() {
         <button className="btn btn-primary" onClick={() => setEditing('new')}><Icon name="plus" size={16} /> Add supplier</button>
       </div>
       {loading && !suppliers ? <LoadingState /> : !suppliers ? <ErrorState error={error} onRetry={retry} /> : suppliers.length === 0 ? (
-        <EmptyState icon="purchases" title="No suppliers yet" text="Add the vendors you buy from." />
+        <EmptyState icon="purchases" title="No suppliers yet" />
       ) : (
         <div className="table-wrap">
           <table>

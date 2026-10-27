@@ -80,21 +80,21 @@ export default function LiveAlerts() {
           className={`btn btn-ghost btn-icon${count ? ' has-alerts' : ''}${quiet ? ' is-quiet' : ''}`}
           onClick={() => { setView('list'); setOpen((o) => !o); }}
           aria-expanded={open}
-          aria-label={`${count ? `${count} items low on stock` : 'No stock alerts'}${quiet ? ', pop-ups off' : ''}`}
-          title={quiet ? 'Stock alerts (pop-ups off)' : 'Stock alerts'}
+          aria-label={`${count ? `${count} items low in inventory` : 'No inventory alerts'}${quiet ? ', pop-ups off' : ''}`}
+          title={quiet ? 'Inventory alerts (pop-ups off)' : 'Inventory alerts'}
         >
           <Icon name={quiet ? 'bellOff' : 'bell'} size={18} />
           {count > 0 && <span className="alert-bell-count">{count > 99 ? '99+' : count}</span>}
         </button>
 
         {open && (
-          <div className="alert-panel" role="dialog" aria-label="Stock alerts">
+          <div className="alert-panel" role="dialog" aria-label="Inventory alerts">
             <div className="alert-panel-head">
               <div>
-                <div className="alert-panel-title">{view === 'settings' ? 'Notification settings' : 'Stock alerts'}</div>
+                <div className="alert-panel-title">{view === 'settings' ? 'Notification settings' : 'Inventory alerts'}</div>
                 {view === 'list' && (
                   <div className="alert-panel-sub">
-                    {count === 0 ? 'All stocked up' : [out.length && `${out.length} out`, running.length && `${running.length} running low`].filter(Boolean).join(' · ')}
+                    {count === 0 ? 'Inventory is all good' : [out.length && `${out.length} out`, running.length && `${running.length} running low`].filter(Boolean).join(' · ')}
                   </div>
                 )}
               </div>
@@ -129,8 +129,8 @@ export default function LiveAlerts() {
                   </div>
                 )}
                 {canOpenStock && (
-                  <Link to="/stock" className="alert-panel-foot" onClick={() => setOpen(false)}>
-                    Open stock <Icon name="external" size={14} />
+                  <Link to="/inventory" className="alert-panel-foot" onClick={() => setOpen(false)}>
+                    Open inventory <Icon name="external" size={14} />
                   </Link>
                 )}
               </>
@@ -142,7 +142,7 @@ export default function LiveAlerts() {
       {shown.length > 0 && (
         <div className="stock-popups" role="alert" aria-live="assertive">
           <div className="stock-popups-head">
-            <span><Icon name="bell" size={16} /> {shown.length === 1 ? 'Stock alert' : `${shown.length} stock alerts`}</span>
+            <span><Icon name="bell" size={16} /> {shown.length === 1 ? 'Inventory alert' : `${shown.length} inventory alerts`}</span>
             <span className="row" style={{ gap: 'var(--space-1)' }}>
               <button className="stock-popups-clear" onClick={openSettings} title="Notification settings">
                 <Icon name="settings" size={13} /> Settings
@@ -154,14 +154,14 @@ export default function LiveAlerts() {
             <div key={p.key} className={`stock-popup${p.outOfStock ? ' is-out' : ''}`}>
               <span className="stock-popup-icon"><Icon name="alert" size={24} /></span>
               <div className="stock-popup-body">
-                <div className="stock-popup-kicker">{p.outOfStock ? 'Out of stock' : 'Low stock'}</div>
+                <div className="stock-popup-kicker">{p.outOfStock ? 'Out of stock' : 'Low inventory'}</div>
                 <div className="stock-popup-title">{p.name}</div>
                 <div className="stock-popup-text">
                   <strong>{formatStock(Math.max(p.quantity, 0), p)} left</strong> · reorder at {formatStock(p.reorderLevel, p)}
                 </div>
                 <div className="stock-popup-actions">
                   {canOpenStock && (
-                    <Link to="/stock" className="stock-popup-link" onClick={() => dismiss(p.key)}>View stock →</Link>
+                    <Link to="/inventory" className="stock-popup-link" onClick={() => dismiss(p.key)}>View inventory →</Link>
                   )}
                   <button className="stock-popup-mute" onClick={() => muteItem(p.id)} title={`Stop pop-ups for ${p.name} on this device`}>
                     <Icon name="bellOff" size={13} /> Mute item
@@ -226,13 +226,11 @@ function AlertSettings({ items }: { items: StockItem[] }) {
     <div className="alert-settings">
       <Toggle
         label="Pop-up alerts"
-        hint="Show a pop-up when an item drops to or below its reorder level"
         checked={prefs.popups}
         onChange={(popups) => stockAlertPrefs.set({ popups })}
       />
       <Toggle
         label="Alert sound"
-        hint="Chime with each pop-up"
         checked={prefs.sound}
         disabled={!prefs.popups}
         onChange={(sound) => stockAlertPrefs.set({ sound })}
@@ -242,7 +240,7 @@ function AlertSettings({ items }: { items: StockItem[] }) {
         <div className="alert-group-title">Muted items <span className="alert-group-count">{prefs.muted.length}</span></div>
         {prefs.muted.length === 0 ? (
           <p className="alert-settings-empty">
-            No muted items. Tap <Icon name="bellOff" size={13} /> next to an item in the alert list to stop its pop-ups.
+            No muted items.
           </p>
         ) : (
           <>
@@ -260,24 +258,19 @@ function AlertSettings({ items }: { items: StockItem[] }) {
         )}
       </div>
 
-      <p className="alert-settings-note">Saved on this device only. The bell always lists every low item.</p>
     </div>
   );
 }
 
-function Toggle({ label, hint, checked, disabled, onChange }: {
+function Toggle({ label, checked, disabled, onChange }: {
   label: string;
-  hint: string;
   checked: boolean;
   disabled?: boolean;
   onChange: (value: boolean) => void;
 }) {
   return (
     <label className={`toggle-row${disabled ? ' is-disabled' : ''}`}>
-      <span>
-        <span className="toggle-label">{label}</span>
-        <span className="toggle-hint">{hint}</span>
-      </span>
+      <span className="toggle-label">{label}</span>
       <input type="checkbox" role="switch" className="toggle" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
     </label>
   );

@@ -31,11 +31,11 @@ export default function Stock() {
   const [history, setHistory] = useState<StockItem | null>(null);
   const [converting, setConverting] = useState<StockItem | null>(null);
 
-  if (loading && !items) return <LoadingState label="Loading stock…" />;
+  if (loading && !items) return <LoadingState label="Loading inventory…" />;
   if (!items) return <ErrorState error={error} onRetry={retry} />;
 
   async function remove(item: StockItem) {
-    if (!confirm(`Delete ${item.name}? Recipes using it will no longer deduct it.`)) return;
+    if (!confirm(`Delete ${item.name}? Menu items linked to it will no longer deduct it.`)) return;
     try {
       await api.stock.delete(item.id);
       reload();
@@ -53,8 +53,7 @@ export default function Stock() {
     <>
       <PageHeader
         icon="stock"
-        title="Stock"
-        subtitle="Ingredients and retail goods on hand. Sales deduct automatically from menu recipes, down to single loose units; purchases add to stock."
+        title="Inventory"
         actions={isAdmin && (
           <>
             <Link to="/purchases" className="btn btn-secondary"><Icon name="purchases" size={16} /> Record purchase</Link>
@@ -64,22 +63,22 @@ export default function Stock() {
       />
 
       <div className="stats-grid">
-        <Stat label="Stock items" value={items.length} tone="primary" />
-        <Stat label="Low stock" value={low.length} hint="At or below reorder level" tone={low.length ? 'warning' : 'success'} />
-        <Stat label="Stock value" value={money(value)} hint="At latest purchase cost" tone="accent" />
+        <Stat label="Inventory items" value={items.length} tone="primary" />
+        <Stat label="Low inventory" value={low.length} tone={low.length ? 'warning' : 'success'} />
+        <Stat label="Inventory value" value={money(value)} tone="accent" />
       </div>
 
       <section className="card">
         <div className="toolbar">
           <div className="segmented" role="tablist">
             <button role="tab" aria-selected={filter === 'all'} className="segmented-item" onClick={() => setFilter('all')}>All <span className="segmented-count">{items.length}</span></button>
-            <button role="tab" aria-selected={filter === 'low'} className="segmented-item" onClick={() => setFilter('low')}>Low stock <span className="segmented-count">{low.length}</span></button>
+            <button role="tab" aria-selected={filter === 'low'} className="segmented-item" onClick={() => setFilter('low')}>Low <span className="segmented-count">{low.length}</span></button>
           </div>
-          <input className="input input-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search items" aria-label="Search stock" />
+          <input className="input input-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search items" aria-label="Search inventory" />
         </div>
 
         {visible.length === 0 ? (
-          <EmptyState icon="stock" title={items.length ? 'Nothing here' : 'No stock items yet'} text={items.length ? 'No items match this view.' : 'Add the ingredients you buy, then link them to menu items as recipes.'} />
+          <EmptyState icon="stock" title={items.length ? 'Nothing here' : 'No inventory items yet'} text={items.length ? 'No items match this view.' : undefined} />
         ) : (
           <div className="table-wrap">
             <table>
@@ -167,7 +166,7 @@ function ItemForm({ item, onClose, onSaved, onConvert }: {
     try {
       if (item) await api.stock.update(item.id, data);
       else await api.stock.create({ ...data, quantity: Number(form.quantity) || 0 });
-      toast.success('Stock item saved');
+      toast.success('Inventory item saved');
       onSaved();
     } catch (err) {
       toast.error((err as Error).message);
@@ -178,7 +177,7 @@ function ItemForm({ item, onClose, onSaved, onConvert }: {
 
   return (
     <Modal
-      title={item ? `Edit ${item.name}` : 'Add stock item'}
+      title={item ? `Edit ${item.name}` : 'Add inventory item'}
       onClose={onClose}
       footer={<>
         <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
@@ -205,12 +204,6 @@ function ItemForm({ item, onClose, onSaved, onConvert }: {
             <input className="input" type="number" step="any" min="0" value={form.unitsPerPack} onChange={set('unitsPerPack')} disabled={!form.packUnit.trim()} required={!!form.packUnit.trim()} placeholder="e.g. 20" />
           </label>
         </div>
-        {form.packUnit.trim() && (
-          <p className="field-hint form-note">
-            Stock is counted in single {form.unit}. A menu item whose recipe uses 1 {form.unit} sells one loose unit;
-            one using {form.unitsPerPack || 'N'} {form.unit} sells a whole {form.packUnit}.
-          </p>
-        )}
         <div className={item ? 'grid-2' : 'grid-3'}>
           {!item && <label className="field"><span className="field-label">Opening qty ({form.unit})</span><input className="input" type="number" step="any" min="0" value={form.quantity} onChange={set('quantity')} /></label>}
           <label className="field"><span className="field-label">Reorder level ({form.unit})</span><input className="input" type="number" step="any" min="0" value={form.reorderLevel} onChange={set('reorderLevel')} /></label>
@@ -218,8 +211,6 @@ function ItemForm({ item, onClose, onSaved, onConvert }: {
         </div>
         {item && (
           <p className="field-hint">
-            To change the quantity on hand, use Adjust or record a purchase so every change is logged.
-            Counted in whole {item.unit} but want to sell single pieces?{' '}
             <button type="button" className="link-button" onClick={() => onConvert(item)}>Convert to loose units…</button>
           </p>
         )}
@@ -244,7 +235,7 @@ function AdjustForm({ item, onClose, onSaved }: { item: StockItem; onClose: () =
     setSaving(true);
     try {
       await api.stock.adjust(item.id, mode === 'add' ? n : -n, mode === 'wastage' ? 'wastage' : 'adjustment', note, inPacks);
-      toast.success('Stock updated');
+      toast.success('Inventory updated');
       onSaved();
     } catch (err) {
       toast.error((err as Error).message);
@@ -261,7 +252,7 @@ function AdjustForm({ item, onClose, onSaved }: { item: StockItem; onClose: () =
       onClose={onClose}
       footer={<>
         <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" type="submit" form="adjust-form" disabled={saving}>{saving ? 'Saving…' : 'Update stock'}</button>
+        <button className="btn btn-primary" type="submit" form="adjust-form" disabled={saving}>{saving ? 'Saving…' : 'Update inventory'}</button>
       </>}
     >
       <form id="adjust-form" onSubmit={submit}>
@@ -285,7 +276,7 @@ function AdjustForm({ item, onClose, onSaved }: { item: StockItem; onClose: () =
         </label>
         <label className="field" style={{ marginBottom: 0 }}>
           <span className="field-label">Note</span>
-          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder={mode === 'wastage' ? 'e.g. spoiled, dropped' : 'e.g. stock count correction'} />
+          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder={mode === 'wastage' ? 'e.g. spoiled, dropped' : 'e.g. count correction'} />
         </label>
       </form>
     </Modal>
@@ -357,11 +348,6 @@ function ConvertForm({ item, onClose, onSaved }: { item: StockItem; onClose: () 
       </>}
     >
       <form id="convert-form" onSubmit={submit}>
-        <p className="field-hint" style={{ marginTop: 0, marginBottom: 'var(--space-4)' }}>
-          Counts this item in single units from now on, so menu items can sell one piece at a time
-          (e.g. one cigarette from a pack). Stock, reorder level, cost, recipes and history are all rescaled,
-          and you can still buy and count it by the {item.unit}.
-        </p>
         <div className="grid-2">
           <label className="field"><span className="field-label">New base unit</span><input className="input" value={unit} onChange={(e) => setUnit(e.target.value)} required autoFocus /></label>
           <label className="field">
@@ -374,7 +360,7 @@ function ConvertForm({ item, onClose, onSaved }: { item: StockItem; onClose: () 
             <li><span>On hand</span><span>{formatQty(item.quantity)} {item.unit} → <strong>{formatQty(item.quantity * f)} {newUnit}</strong></span></li>
             <li><span>Reorder level</span><span>{formatQty(item.reorderLevel)} {item.unit} → <strong>{formatQty(item.reorderLevel * f)} {newUnit}</strong></span></li>
             <li><span>Cost</span><span>{money(item.costPerUnit)} / {item.unit} → <strong>{money(Math.round((item.costPerUnit / f) * 100) / 100)} / {newUnit}</strong></span></li>
-            <li><span>Recipes</span><span>quantities × {formatQty(f)}</span></li>
+            <li><span>Menu links</span><span>quantities × {formatQty(f)}</span></li>
           </ul>
         )}
       </form>

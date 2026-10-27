@@ -24,7 +24,7 @@ const NAV: NavEntry[] = [
   { to: '/tables', label: 'Tables & QR', icon: 'qr', roles: ['admin', 'cashier'] },
   { to: '/pos', label: 'POS / Billing', icon: 'pos', roles: ['admin', 'cashier'], quick: true },
   { to: '/purchases', label: 'Purchases', icon: 'purchases', roles: ['admin'] },
-  { to: '/stock', label: 'Stock', icon: 'stock', roles: ['admin', 'chef'] },
+  { to: '/inventory', label: 'Inventory', icon: 'stock', roles: ['admin', 'chef'] },
   { to: '/orders', label: 'Orders', icon: 'orders', roles: ['admin', 'cashier'], quick: true },
   { to: '/kitchen', label: 'Kitchen', icon: 'kitchen', roles: ALL, quick: true },
   { to: '/staff', label: 'Staff & Payroll', icon: 'user', roles: ['admin'] },

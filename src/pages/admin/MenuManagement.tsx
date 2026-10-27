@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, assetUrl } from '../../api/client';
 import { PageHeader } from '../../components/AppShell';
+import ExpandableText from '../../components/ExpandableText';
 import FoodVisual from '../../components/FoodVisual';
 import Icon from '../../components/Icon';
 import ImageEditor from '../../components/ImageEditor';
@@ -12,6 +13,8 @@ import type { Category, MenuItem, StockItem } from '../../types';
 interface FormState {
   name: string;
   description: string;
+  /** Optional, display only */
+  ingredients: string;
   price: string;
   /** Optional: empty = no half plate */
   halfPrice: string;
@@ -66,7 +69,6 @@ export default function MenuManagement() {
       <PageHeader
         icon="menu"
         title="Menu"
-        subtitle="What guests can order. Changes show on table menus within seconds."
         actions={
           <button className="btn btn-primary" onClick={() => setEditing('new')} disabled={categories.length === 0}>
             <Icon name="plus" size={16} /> Add item
@@ -112,7 +114,10 @@ export default function MenuManagement() {
                           <div className="thumb"><FoodVisual imageUrl={item.imageUrl} category={item.category} iconSize={22} /></div>
                         </td>
                         <td><strong>{item.name}</strong></td>
-                        <td className="muted"><div className="cell-clamp" title={item.description || undefined}>{item.description}</div></td>
+                        <td className="muted">
+                          <ExpandableText text={item.description} className="cell-clamp" />
+                          {item.ingredients && <div className="cell-sub cell-clamp-1" title={item.ingredients}>Ingredients: {item.ingredients}</div>}
+                        </td>
                         <td className="num nowrap">
                           {money(item.price)}
                           {item.halfPrice != null && <div className="subtle" style={{ fontSize: 'var(--text-xs)' }}>Half {money(item.halfPrice)}</div>}
@@ -146,7 +151,7 @@ export default function MenuManagement() {
 
       {categories.length === 0 && (
         <div className="card">
-          <EmptyState icon="menu" title="Start with a category" text="Add a category such as “Teas” above, then add items to it." />
+          <EmptyState icon="menu" title="No categories yet" />
         </div>
       )}
 
@@ -276,7 +281,7 @@ function RemoveCategory({ category, categories, items, onClose, onRemoved }: {
       </>}
     >
       {inside.length === 0 ? (
-        <p className="muted">This category is empty. It will disappear from the menu, the POS and guest menus.</p>
+        <p className="muted">This category is empty.</p>
       ) : blocked ? (
         <p className="alert alert-warning" style={{ marginBottom: 0 }}>
           “{category.name}” still has {inside.length} {plural} and there is no other category to move them to.
@@ -300,6 +305,7 @@ function RemoveCategory({ category, categories, items, onClose, onRemoved }: {
   );
 }
 
+/** Optional link to an inventory item: each sale deducts `quantity` of it */
 interface RecipeRow { stockItemId: string; quantity: string }
 
 function ItemForm({ item, categories, stock, onSaved, onClose }: {
@@ -313,6 +319,7 @@ function ItemForm({ item, categories, stock, onSaved, onClose }: {
   const [form, setForm] = useState<FormState>({
     name: item?.name ?? '',
     description: item?.description ?? '',
+    ingredients: item?.ingredients ?? '',
     price: item ? String(item.price) : '',
     halfPrice: item?.halfPrice != null ? String(item.halfPrice) : '',
     category: item?.category ?? categories[0]?.slug ?? '',
@@ -328,7 +335,7 @@ function ItemForm({ item, categories, stock, onSaved, onClose }: {
     if (!item) return;
     api.menu.getRecipe(item.id).then(
       (rows) => setRecipe(rows.map((r) => ({ stockItemId: String(r.stockItemId), quantity: String(r.quantity) }))),
-      () => toast.error('Could not load ingredients'),
+      () => toast.error('Could not load inventory links'),
     );
   }, [item, toast]);
 
@@ -336,22 +343,43 @@ function ItemForm({ item, categories, stock, onSaved, onClose }: {
 
   const set = (key: keyof FormState) => (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value });
 
+  function clearFileInput() {
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  // Any format the browser can decode opens in the editor, which crops it to the fixed 4:3 menu frame
+  // and saves a JPEG, so every photo displays the same everywhere.
   function chooseFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) setEditorSrc(URL.createObjectURL(file));
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const probe = new Image();
+    probe.onload = () => setEditorSrc(url);
+    probe.onerror = () => {
+      URL.revokeObjectURL(url);
+      clearFileInput();
+      const ext = file.name.split('.').pop()?.toUpperCase() || 'this';
+      toast.error(`This browser can't open ${ext} images. Save the photo as JPG or PNG and try again.`);
+    };
+    probe.src = url;
+  }
+
+  function cancelEdit() {
+    setEditorSrc(null);
+    clearFileInput(); // so picking the same file again reopens the editor
   }
 
   function applyEdit(blob: Blob) {
     setImageFile(new File([blob], `edited-${Date.now()}.jpg`, { type: 'image/jpeg' }));
     setImagePreview(URL.createObjectURL(blob));
     setEditorSrc(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    clearFileInput();
   }
 
   function removeImage() {
     setImageFile(null);
     setImagePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    clearFileInput();
   }
 
   async function submit(e: FormEvent) {
@@ -396,6 +424,10 @@ function ItemForm({ item, categories, stock, onSaved, onClose }: {
             <span className="field-label">Description</span>
             <textarea className="input" rows={2} value={form.description} onChange={set('description')} />
           </label>
+          <label className="field">
+            <span className="field-label">Ingredients <span className="subtle">(optional)</span></span>
+            <input className="input" value={form.ingredients} onChange={set('ingredients')} maxLength={1000} placeholder="e.g. Chicken, cheddar, lettuce, house sauce" />
+          </label>
           {/* Equal columns with one-line labels, so all three inputs sit on the same line */}
           <div className="grid-3 price-row">
             <label className="field">
@@ -404,7 +436,7 @@ function ItemForm({ item, categories, stock, onSaved, onClose }: {
             </label>
             <label className="field">
               <span className="field-label">Half plate price</span>
-              <input type="number" step="1" min="0" className="input" value={form.halfPrice} onChange={set('halfPrice')} placeholder="Optional" aria-describedby="half-hint" />
+              <input type="number" step="1" min="0" className="input" value={form.halfPrice} onChange={set('halfPrice')} placeholder="Optional" />
             </label>
             <label className="field">
               <span className="field-label">Category</span>
@@ -413,49 +445,42 @@ function ItemForm({ item, categories, stock, onSaved, onClose }: {
               </select>
             </label>
           </div>
-          <p id="half-hint" className="field-hint" style={{ marginTop: 'calc(-1 * var(--space-2))', marginBottom: 'var(--space-4)' }}>
-            {form.halfPrice.trim() !== ''
-              ? 'Guests and the POS can choose Full or Half plate. The kitchen sees "Half plate" on the ticket, and a half plate uses half of the ingredients below.'
-              : 'Half plate price is optional. Leave it empty if this item is only sold as a full plate.'}
-          </p>
           <div className="field">
             <span className="field-label">Photo</span>
             {imagePreview && (
               <div className="image-preview">
-                <img src={imagePreview} alt="Preview" />
+                <div className="image-preview-frame"><img src={imagePreview} alt="Preview" /></div>
                 <div className="stack" style={{ gap: 'var(--space-2)' }}>
                   <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditorSrc(imagePreview)}>Edit photo</button>
                   <button type="button" className="btn btn-danger btn-sm" onClick={removeImage}>Remove</button>
                 </div>
               </div>
             )}
-            <input ref={fileInputRef} type="file" accept="image/*" className="input" onChange={chooseFile} />
-            <span className="field-hint">Up to 5 MB · JPG, PNG or WebP. Choosing a file opens the editor.</span>
+            <input ref={fileInputRef} type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.avif,.bmp,.svg,.heic,.heif,.tif,.tiff" className="input" onChange={chooseFile} />
           </div>
           <div className="field" style={{ marginBottom: 0 }}>
-            <span className="field-label">Ingredients per serving</span>
-            <span className="field-hint" style={{ marginBottom: 'var(--space-2)' }}>Each sale deducts these from stock automatically. Leave empty to skip stock tracking.</span>
+            <span className="field-label">Link to inventory <span className="subtle">(optional)</span></span>
             {recipe.map((r, i) => {
               const unit = stock.find((s) => String(s.id) === r.stockItemId)?.unit;
               return (
                 <div key={i} className="line-editor two">
-                  <select className="input" value={r.stockItemId} onChange={(e) => setRow(i, { stockItemId: e.target.value })} aria-label="Ingredient">
-                    <option value="">Choose ingredient…</option>
+                  <select className="input" value={r.stockItemId} onChange={(e) => setRow(i, { stockItemId: e.target.value })} aria-label="Inventory item">
+                    <option value="">Choose inventory item…</option>
                     {stock.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.unit})</option>)}
                   </select>
-                  <input className="input" type="number" step="any" min="0" value={r.quantity} onChange={(e) => setRow(i, { quantity: e.target.value })} placeholder={unit ? `Qty (${unit})` : 'Qty'} aria-label="Quantity per serving" />
-                  <button type="button" className="btn btn-ghost btn-icon" onClick={() => setRecipe((rows) => rows.filter((_, j) => j !== i))} aria-label="Remove ingredient"><Icon name="close" size={16} /></button>
+                  <input className="input" type="number" step="any" min="0" value={r.quantity} onChange={(e) => setRow(i, { quantity: e.target.value })} placeholder={unit ? `Qty (${unit})` : 'Qty'} aria-label="Quantity deducted per sale" />
+                  <button type="button" className="btn btn-ghost btn-icon" onClick={() => setRecipe((rows) => rows.filter((_, j) => j !== i))} aria-label="Remove inventory link"><Icon name="close" size={16} /></button>
                 </div>
               );
             })}
             <button type="button" className="btn btn-secondary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setRecipe((rows) => [...rows, { stockItemId: '', quantity: '' }])} disabled={stock.length === 0}>
-              <Icon name="plus" size={14} /> Add ingredient
+              <Icon name="plus" size={14} /> Link inventory item
             </button>
           </div>
         </form>
       </Modal>
 
-      {editorSrc && <ImageEditor src={editorSrc} onSave={applyEdit} onCancel={() => setEditorSrc(null)} />}
+      {editorSrc && <ImageEditor src={editorSrc} onSave={applyEdit} onCancel={cancelEdit} />}
     </>
   );
 }

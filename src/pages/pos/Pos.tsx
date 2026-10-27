@@ -108,7 +108,7 @@ export default function Pos() {
 
   return (
     <>
-      <PageHeader icon="pos" title="POS / Billing" subtitle="Take orders at the counter, send them to the kitchen and settle bills" />
+      <PageHeader icon="pos" title="POS / Billing" />
 
       <div className="pos">
         <section className="pos-menu">
@@ -124,7 +124,7 @@ export default function Pos() {
           </div>
 
           {visible.length === 0 ? (
-            <div className="card"><EmptyState icon="menu" title="Nothing found" text="Try another category or search term." /></div>
+            <div className="card"><EmptyState icon="menu" title="Nothing found" /></div>
           ) : (
             <div className="pos-tiles">
               {visible.map((m) => {
@@ -190,7 +190,7 @@ export default function Pos() {
                 )}
 
                 {lines.length === 0 ? (
-                  <EmptyState icon="burger" title="Ticket is empty" text="Tap menu items to add them." />
+                  <EmptyState icon="burger" title="Ticket is empty" />
                 ) : (
                   <div>
                     {lines.map(({ key, item: m, portion, qty, unitPrice }) => (
@@ -239,7 +239,7 @@ export default function Pos() {
                 </div>
               )}
               {openBills.length === 0 ? (
-                <EmptyState icon="pos" title="All bills settled" text="Unpaid orders appear here until they are charged." />
+                <EmptyState icon="pos" title="All bills settled" />
               ) : (
                 <div className="stack" style={{ gap: 'var(--space-2)' }}>
                   {openBills.map((o) => (

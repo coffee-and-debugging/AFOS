@@ -33,6 +33,22 @@ export function useAmountMask() {
   return { hidden, toggle, show };
 }
 
+/** Ref + whether its text is currently cut off by a CSS line clamp; re-checks on resize and when `text` changes. */
+export function useIsClamped<T extends HTMLElement>(text: string) {
+  const ref = useRef<T>(null);
+  const [clamped, setClamped] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => setClamped(el.scrollHeight > el.clientHeight + 1);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [text]);
+  return [ref, clamped] as const;
+}
+
 export function useConnectivity() {
   return useSyncExternalStore(connectivityStore.subscribe, connectivityStore.getSnapshot);
 }

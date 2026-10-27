@@ -84,7 +84,6 @@ export default function TablesManagement() {
       <PageHeader
         icon="qr"
         title="Tables & QR"
-        subtitle="Live floor status. Take orders, settle bills, or print a table's QR code for guests."
         actions={isAdmin && (
           <form className="inline-form" onSubmit={add}>
             <label className="field" style={{ minWidth: 120 }}>
@@ -104,7 +103,7 @@ export default function TablesManagement() {
       </div>
 
       {tables.length === 0 ? (
-        <div className="card"><EmptyState icon="tables" title="No tables yet" text="Add your first table to start taking dine-in orders." /></div>
+        <div className="card"><EmptyState icon="tables" title="No tables yet" /></div>
       ) : (
         <div className="floor">
           {tables.map((t) => {

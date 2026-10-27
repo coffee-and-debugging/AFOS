@@ -25,6 +25,8 @@ export interface MenuItem {
   id: number;
   name: string;
   description: string;
+  /** Optional, display only (e.g. "Chicken, cheese, lettuce"). Not linked to inventory */
+  ingredients?: string;
   price: number;
   /** Optional half-plate price; when set, the item can be ordered as a half plate */
   halfPrice?: number | null;

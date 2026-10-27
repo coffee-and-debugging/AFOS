@@ -40,7 +40,7 @@ export default function Orders() {
   const replace = (updated: Order) => setData((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
 
   async function updateStatus(o: Order, status: OrderStatus) {
-    if (status === 'cancelled' && !confirm(`Cancel bill ${billLabel(o)}? Ingredients go back into stock.`)) return;
+    if (status === 'cancelled' && !confirm(`Cancel bill ${billLabel(o)}? Linked items go back into inventory.`)) return;
     try {
       replace(await api.orders.updateStatus(o.id, status));
       if (status === 'cancelled') toast.success(`Bill ${billLabel(o)} cancelled`);
@@ -59,7 +59,7 @@ export default function Orders() {
 
   return (
     <>
-      <PageHeader icon="orders" title="Orders" subtitle="Every order from the POS and table QR codes" />
+      <PageHeader icon="orders" title="Orders" />
 
       <div className="toolbar">
         <RangePicker preset={preset} onChange={(p, r) => { setPreset(p); setRange(r); }} />

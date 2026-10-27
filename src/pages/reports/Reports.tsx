@@ -26,7 +26,6 @@ export default function Reports() {
     <PageHeader
       icon="reports"
       title="Reports"
-      subtitle="Sales, profit, payments and best sellers for any period"
       actions={report && (
         <>
           <button className="btn btn-secondary" onClick={() => downloadCsv(`sales-${report.byDay[0]?.date}-to-${report.byDay.at(-1)?.date}.csv`, [
@@ -81,7 +80,7 @@ export default function Reports() {
       </section>
 
       <div className="stats-grid">
-        <Stat label="Gross sales" value={money(t.grossSales)} hint="Before discounts and charges" tone="primary" />
+        <Stat label="Gross sales" value={money(t.grossSales)} tone="primary" />
         <Stat label="Discounts" value={money(t.discounts)} tone="warning" />
         <Stat label="Service charge" value={money(t.serviceCharge)} tone="accent" />
         <Stat label="VAT collected" value={money(t.tax)} tone="accent" />
@@ -90,7 +89,7 @@ export default function Reports() {
       </div>
 
       {t.orders === 0 ? (
-        <div className="card"><EmptyState icon="reports" title="No sales in this period" text="Pick another date range to see results." /></div>
+        <div className="card"><EmptyState icon="reports" title="No sales in this period" /></div>
       ) : (
         <>
           <div className="chart-grid">

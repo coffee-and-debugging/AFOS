@@ -37,11 +37,11 @@ router.post('/', asyncHandler(async (req, res) => {
     const stockItemId = Number(i.stockItemId);
     const entered = Number(i.quantity);
     const enteredCost = Number(i.unitCost);
-    if (!Number.isInteger(stockItemId)) throw new HttpError(400, 'Choose a stock item for every line');
+    if (!Number.isInteger(stockItemId)) throw new HttpError(400, 'Choose an inventory item for every line');
     if (!(entered > 0)) throw new HttpError(400, 'Quantities must be greater than zero');
     if (!(enteredCost >= 0)) throw new HttpError(400, 'Unit cost cannot be negative');
     const stockItem = stockItems.find((s) => s.id === stockItemId);
-    if (!stockItem) throw new HttpError(400, 'One of the stock items no longer exists');
+    if (!stockItem) throw new HttpError(400, 'One of the inventory items no longer exists');
     const subtotal = round(entered * enteredCost);
     const quantity = toBaseUnits(stockItem, entered, Boolean(i.inPacks));
     return { stockItemId, quantity, unitCost: quantity ? subtotal / quantity : 0, subtotal };

@@ -41,6 +41,11 @@ function parseHalfPrice(value) {
   return price;
 }
 
+/** Optional display-only ingredient list, e.g. "Chicken, cheese, lettuce". Never touches inventory. */
+function parseIngredients(value) {
+  return String(value ?? '').trim().slice(0, 1000);
+}
+
 function parseId(value) {
   const id = Number.parseInt(value, 10);
   if (!Number.isInteger(id)) throw new HttpError(400, 'Invalid menu item id');
@@ -57,7 +62,7 @@ router.get('/', asyncHandler(async (req, res) => {
 }));
 
 router.post('/', requireAuth(['admin']), asyncHandler(async (req, res) => {
-  const { name, description, price, halfPrice, category, imageUrl } = req.body || {};
+  const { name, description, ingredients, price, halfPrice, category, imageUrl } = req.body || {};
   if (!name || price === undefined || !category) {
     throw new HttpError(400, 'Name, price and category are required');
   }
@@ -65,6 +70,7 @@ router.post('/', requireAuth(['admin']), asyncHandler(async (req, res) => {
     data: {
       name: String(name).trim(),
       description: description || '',
+      ingredients: parseIngredients(ingredients),
       price: parsePrice(price),
       halfPrice: parseHalfPrice(halfPrice),
       category,
@@ -76,12 +82,13 @@ router.post('/', requireAuth(['admin']), asyncHandler(async (req, res) => {
 }));
 
 router.put('/:id', requireAuth(['admin']), asyncHandler(async (req, res) => {
-  const { name, description, price, halfPrice, category, available, imageUrl } = req.body || {};
+  const { name, description, ingredients, price, halfPrice, category, available, imageUrl } = req.body || {};
   const item = await prisma.menuItem.update({
     where: { id: parseId(req.params.id) },
     data: {
       ...(name !== undefined && { name: String(name).trim() }),
       ...(description !== undefined && { description }),
+      ...(ingredients !== undefined && { ingredients: parseIngredients(ingredients) }),
       ...(price !== undefined && { price: parsePrice(price) }),
       ...(halfPrice !== undefined && { halfPrice: parseHalfPrice(halfPrice) }),
       ...(category !== undefined && { category }),
@@ -97,7 +104,7 @@ router.delete('/:id', requireAuth(['admin']), asyncHandler(async (req, res) => {
   res.json({ success: true });
 }));
 
-// Ingredients used per unit sold; drives automatic stock deduction.
+// Optional inventory link: quantity used per unit sold; drives automatic inventory deduction and low alerts.
 router.get('/:id/recipe', requireAuth(ROLES.STAFF), asyncHandler(async (req, res) => {
   res.json(await prisma.recipeItem.findMany({
     where: { menuItemId: parseId(req.params.id) },
@@ -111,11 +118,11 @@ router.put('/:id/recipe', requireAuth(ROLES.ADMIN), asyncHandler(async (req, res
   const data = rows.map((r) => {
     const stockItemId = Number(r.stockItemId);
     const quantity = Number(r.quantity);
-    if (!Number.isInteger(stockItemId)) throw new HttpError(400, 'Choose a stock item for every ingredient');
-    if (!(quantity > 0)) throw new HttpError(400, 'Ingredient quantities must be greater than zero');
+    if (!Number.isInteger(stockItemId)) throw new HttpError(400, 'Choose an inventory item for every link');
+    if (!(quantity > 0)) throw new HttpError(400, 'Linked quantities must be greater than zero');
     return { menuItemId, stockItemId, quantity };
   });
-  if (new Set(data.map((d) => d.stockItemId)).size !== data.length) throw new HttpError(400, 'Each ingredient can appear only once');
+  if (new Set(data.map((d) => d.stockItemId)).size !== data.length) throw new HttpError(400, 'Each inventory item can be linked only once');
 
   await prisma.$transaction([
     prisma.recipeItem.deleteMany({ where: { menuItemId } }),

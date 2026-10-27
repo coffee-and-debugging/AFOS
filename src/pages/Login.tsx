@@ -45,7 +45,6 @@ export default function Login() {
           <div>
             <div className="hero-kicker">Restaurant OS</div>
             <div className="hero-title">Run your<br />restaurant<br />in one place</div>
-            <p className="hero-sub">Orders, billing, kitchen, stock and reports, updating live across every screen.</p>
           </div>
           <p className="subtle">{restaurant.name} · v{__APP_VERSION__}</p>
         </section>

@@ -15,7 +15,7 @@ export default function Settings() {
 
   return (
     <>
-      <PageHeader icon="settings" title="Settings" subtitle="Your restaurant's details, billing rules and receipt" />
+      <PageHeader icon="settings" title="Settings" />
       {data ? <SettingsForm initial={data} /> : loading ? <LoadingState /> : <ErrorState error={error} onRetry={retry} />}
     </>
   );
@@ -97,13 +97,9 @@ function SettingsForm({ initial }: { initial: Restaurant }) {
             <label className="field"><span className="field-label">VAT / tax %</span><input className="input" type="number" step="0.01" min="0" max="100" value={form.taxRate} onChange={set('taxRate')} required /></label>
             <label className="field"><span className="field-label">Service charge %</span><input className="input" type="number" step="0.01" min="0" max="100" value={form.serviceChargeRate} onChange={set('serviceChargeRate')} required /></label>
           </div>
-          <p className="field-hint" style={{ marginTop: 'calc(-1 * var(--space-2))', marginBottom: 'var(--space-4)' }}>
-            Service charge applies to dine-in only. Tax is calculated on the subtotal after discount plus service charge.
-          </p>
           <label className="field"><span className="field-label">Receipt footer</span><input className="input" value={form.receiptFooter} onChange={set('receiptFooter')} /></label>
 
           <h2 className="card-title" style={{ margin: 'var(--space-3) 0 var(--space-2)' }}>Table QR codes</h2>
-          <p className="field-hint" style={{ marginTop: 0, marginBottom: 'var(--space-3)' }}>The address guests' phones open when they scan a table's QR code.</p>
           <div className="qr-mode" role="radiogroup" aria-label="Guest ordering address">
             <label className={`qr-mode-option${qrMode === 'auto' ? ' is-selected' : ''}`}>
               <input type="radio" name="qr-mode" checked={qrMode === 'auto'} onChange={() => setQrMode('auto')} />
@@ -112,7 +108,6 @@ function SettingsForm({ initial }: { initial: Restaurant }) {
                 <span className="qr-mode-value">
                   {autoBase === undefined ? 'Detecting…' : autoBase ?? 'No Wi-Fi address found. Connect to Wi-Fi or use Manual.'}
                 </span>
-                <span className="qr-mode-hint">Follows the Wi-Fi IPv4 address every time the system runs.</span>
               </span>
             </label>
             <label className={`qr-mode-option${qrMode === 'manual' ? ' is-selected' : ''}`}>
@@ -129,11 +124,9 @@ function SettingsForm({ initial }: { initial: Restaurant }) {
                   aria-label="Manual guest ordering address"
                   aria-invalid={qrMode === 'manual' && !manualValid}
                 />
-                <span className="qr-mode-hint">
-                  {qrMode === 'manual' && manualBase && !manualValid
-                    ? 'Enter an address like http://192.168.100.20:5173'
-                    : 'Kept exactly as saved; never changed automatically. Use it for a fixed IP or your website.'}
-                </span>
+                {qrMode === 'manual' && manualBase && !manualValid && (
+                  <span className="qr-mode-hint">Enter an address like http://192.168.100.20:5173</span>
+                )}
               </span>
             </label>
           </div>
@@ -155,7 +148,6 @@ function SettingsForm({ initial }: { initial: Restaurant }) {
                 ))}
               </ul>
             )}
-            <p className="field-hint" style={{ margin: 'var(--space-2) 0 0' }}>Reprint the QR codes from <strong>Tables &amp; QR</strong> after the address changes.</p>
           </div>
 
           <button className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button>

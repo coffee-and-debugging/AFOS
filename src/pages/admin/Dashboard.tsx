@@ -82,8 +82,8 @@ export default function Dashboard() {
       <div className="stats-grid">
         <Stat label="Open bills" value={money(openAmount)} hint={`${occupied} table${occupied === 1 ? '' : 's'} waiting to pay`} tone="primary" />
         <Stat label="Tables occupied" value={`${occupied} / ${tables.length}`} tone="accent" />
-        <Stat label="In the kitchen" value={inKitchen} hint="Pending or cooking" tone="warning" />
-        <Stat label="Low stock items" value={today.stock.lowStock.length} hint={`Stock value ${money(today.stock.value)}`} tone={today.stock.lowStock.length ? 'primary' : 'success'} />
+        <Stat label="In the kitchen" value={inKitchen} tone="warning" />
+        <Stat label="Low inventory items" value={today.stock.lowStock.length} hint={`Inventory value ${money(today.stock.value)}`} tone={today.stock.lowStock.length ? 'primary' : 'success'} />
       </div>
 
       <div className="chart-grid">
@@ -103,7 +103,7 @@ export default function Dashboard() {
         <section className="card">
           <h2 className="card-title" style={{ marginBottom: 'var(--space-3)' }}>Top sellers today</h2>
           {today.topItems.length === 0 ? (
-            <EmptyState icon="burger" title="No sales yet" text="Best sellers will show up here." />
+            <EmptyState icon="burger" title="No sales yet" />
           ) : (
             <ol className="rank-list">
               {today.topItems.slice(0, 6).map((i) => (
@@ -121,7 +121,7 @@ export default function Dashboard() {
         <section className="card span-2">
           <div className="card-header"><h2 className="card-title">Recent orders</h2><Link to="/orders" className="subtle">All orders →</Link></div>
           {recent.length === 0 ? (
-            <EmptyState icon="orders" title="No orders yet today" text="New orders from the POS and table QR codes appear here." />
+            <EmptyState icon="orders" title="No orders yet today" />
           ) : (
             <div className="table-wrap">
               <table>
@@ -143,9 +143,9 @@ export default function Dashboard() {
         </section>
 
         <section className="card">
-          <div className="card-header"><h2 className="card-title">Low stock</h2><Link to="/stock" className="subtle">Stock →</Link></div>
+          <div className="card-header"><h2 className="card-title">Low inventory</h2><Link to="/inventory" className="subtle">Inventory →</Link></div>
           {today.stock.lowStock.length === 0 ? (
-            <EmptyState icon="stock" title="All stocked up" text="Nothing is below its reorder level." />
+            <EmptyState icon="stock" title="Inventory is all good" />
           ) : (
             <ul className="line-items">
               {today.stock.lowStock.slice(0, 8).map((s) => (

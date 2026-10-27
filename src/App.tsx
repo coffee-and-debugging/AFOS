@@ -56,7 +56,7 @@ export default function App() {
           <Route path="/tables" element={<Staff roles={FRONT}><TablesManagement /></Staff>} />
           <Route path="/pos" element={<Staff roles={FRONT}><Pos /></Staff>} />
           <Route path="/purchases" element={<Staff roles={ADMIN}><Purchases /></Staff>} />
-          <Route path="/stock" element={<Staff roles={['admin', 'chef']}><Stock /></Staff>} />
+          <Route path="/inventory" element={<Staff roles={['admin', 'chef']}><Stock /></Staff>} />
           <Route path="/orders" element={<Staff roles={FRONT}><Orders /></Staff>} />
           <Route path="/kitchen" element={<Staff roles={['admin', 'cashier', 'chef']}><KitchenDisplay /></Staff>} />
           <Route path="/reports" element={<Staff roles={ADMIN}><Reports /></Staff>} />
@@ -67,6 +67,7 @@ export default function App() {
           <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
           <Route path="/admin/:page" element={<RootRedirect />} />
           <Route path="/chef" element={<Navigate to="/kitchen" replace />} />
+          <Route path="/stock" element={<Navigate to="/inventory" replace />} />
 
           <Route path="/table/:tableId" element={<CustomerPage />} />
           <Route path="/order/:orderId" element={<OrderStatus />} />

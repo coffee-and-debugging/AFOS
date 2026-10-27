@@ -13,10 +13,10 @@ import type { CategoryColor, PayrollMethod, StaffCategory, StaffMember, StaffPay
 
 const ROLE_LABEL: Record<StaffRole, string> = { admin: 'Manager', cashier: 'Cashier', chef: 'Kitchen', staff: 'Staff' };
 const ROLE_HINT: Record<StaffRole, string> = {
-  admin: 'Full access: menu, stock, reports, staff and payroll',
-  cashier: 'POS, billing, orders and tables',
-  chef: 'Kitchen display and stock',
-  staff: 'Payroll only — cannot sign in (waiters, cleaners, helpers…)',
+  admin: 'Full access',
+  cashier: 'POS, orders and tables',
+  chef: 'Kitchen and inventory',
+  staff: 'Payroll only, no sign-in',
 };
 const METHOD_LABEL: Record<PayrollMethod, string> = { cash: 'Cash', bank: 'Bank transfer', esewa: 'eSewa', khalti: 'Khalti' };
 
@@ -102,7 +102,6 @@ export default function Staff() {
       <PageHeader
         icon="user"
         title="Staff & Payroll"
-        subtitle="Team members, their access, salaries and every payout"
         actions={<>
           <button className="btn btn-secondary" onClick={() => setManaging(true)}><Icon name="settings" size={16} /> Categories</button>
           <button className="btn btn-secondary" onClick={() => setEditing('cashier')}><Icon name="pos" size={16} /> Add cashier</button>
@@ -113,7 +112,7 @@ export default function Staff() {
 
       <div className="stats-grid">
         <Stat label="Active staff" value={active.length} hint={`${staff.length - active.length} inactive`} tone="primary" />
-        <Stat label="Monthly salaries" value={money(salaryBill)} hint="Base pay of active staff" tone="accent" />
+        <Stat label="Monthly salaries" value={money(salaryBill)} tone="accent" />
         <Stat label={`Paid · ${monthLabel(period)}`} value={money(round2(paid))} hint={`${payments.length} payment${payments.length === 1 ? '' : 's'}`} tone="success" />
         <Stat label="Not yet paid" value={unpaid.length} hint={unpaid.length ? unpaid.slice(0, 3).map((s) => s.name).join(', ') : 'Everyone is paid'} tone={unpaid.length ? 'warning' : 'success'} />
       </div>
@@ -252,7 +251,7 @@ function PaymentsTable({ payments, onChanged, showStaff }: { payments: StaffPaym
     }
   }
 
-  if (payments.length === 0) return <EmptyState icon="cash" title="No payments recorded" text="Use Pay on a staff member to record salary, bonus and overtime." />;
+  if (payments.length === 0) return <EmptyState icon="cash" title="No payments recorded" />;
 
   const sum = (k: keyof StaffPayment) => round2(payments.reduce((s, p) => s + (p[k] as number), 0));
 
@@ -419,7 +418,6 @@ function StaffForm({ member, initialRole, categories: initialCategories, default
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setNewCategory(null)}>Cancel</button>
               </div>
             )}
-            <span className="field-hint">Department used to group staff and payroll</span>
           </div>
           <label className="field">
             <span className="field-label">Role &amp; access</span>
@@ -517,7 +515,6 @@ function PayForm({ member, period: initialPeriod, onClose, onSaved }: { member: 
         {alreadyPaid && (
           <p className="alert alert-warning">
             {member.name} already has {member.paymentsThisPeriod} payment{member.paymentsThisPeriod === 1 ? '' : 's'} ({money(member.paidThisPeriod)}) for {monthLabel(form.period)}.
-            Record another only for an advance, bonus or correction.
           </p>
         )}
         <div className="grid-3">
@@ -669,7 +666,7 @@ function CategoryManager({ categories, onClose, onChanged }: {
       </form>
 
       {list.length === 0 ? (
-        <EmptyState icon="user" title="No categories yet" text="Add departments such as Kitchen, Service or Housekeeping." />
+        <EmptyState icon="user" title="No categories yet" />
       ) : (
         <ul className="category-list">
           {list.map((c, i) => (
@@ -722,10 +719,9 @@ function CategoryManager({ categories, onClose, onChanged }: {
                 <option value="none">— Uncategorised —</option>
                 {list.filter((c) => c.id !== removing.id).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <span className="field-hint">Inactive staff in this category move too. Payment history is not affected.</span>
             </label>
           ) : (
-            <p style={{ margin: 0 }}>No active staff are in this category. Any inactive members will become uncategorised.</p>
+            <p style={{ margin: 0 }}>No active staff in this category.</p>
           )}
         </Modal>
       )}

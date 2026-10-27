@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../../api/client';
+import ExpandableText from '../../components/ExpandableText';
 import FoodVisual from '../../components/FoodVisual';
 import GuestHeader from '../../components/GuestHeader';
 import Icon from '../../components/Icon';
@@ -56,6 +57,7 @@ export default function CustomerPage() {
   const [category, setCategory] = useState('all');
   const [note, setNote] = useState('');
   const [showCart, setShowCart] = useState(false);
+  const [details, setDetails] = useState<MenuItem | null>(null);
   const [placing, setPlacing] = useState(false);
 
   if (menu.loading && !menu.data) return <><GuestHeader /><LoadingState label="Loading the menu…" /></>;
@@ -151,7 +153,7 @@ export default function CustomerPage() {
             <h2 className="section-title">{section.name}</h2>
             <div className="item-grid">
               {section.items.map((item) => (
-                <ItemCard key={item.id} item={item} cart={cart} money={money} onQty={bump} />
+                <ItemCard key={item.id} item={item} cart={cart} money={money} onQty={bump} onDetails={() => setDetails(item)} />
               ))}
             </div>
           </section>
@@ -168,6 +170,23 @@ export default function CustomerPage() {
             <button className="btn btn-accent btn-lg" onClick={() => setShowCart(true)}>Review order</button>
           </div>
         </div>
+      )}
+
+      {details && (
+        <Modal title={details.name} onClose={() => setDetails(null)}>
+          <div className="item-detail-media"><FoodVisual imageUrl={details.imageUrl} category={details.category} /></div>
+          {details.description && <p className="item-detail-text">{details.description}</p>}
+          {details.ingredients && (
+            <>
+              <h3 className="item-detail-label">Ingredients</h3>
+              <p className="item-detail-text">{details.ingredients}</p>
+            </>
+          )}
+          <p className="price" style={{ margin: 0 }}>
+            {money(details.price)}
+            {hasHalf(details) && <span className="subtle"> · {PORTION_LABEL.half} {money(details.halfPrice!)}</span>}
+          </p>
+        </Modal>
       )}
 
       {showCart && (
@@ -216,11 +235,12 @@ export default function CustomerPage() {
   );
 }
 
-function ItemCard({ item, cart, money, onQty }: {
+function ItemCard({ item, cart, money, onQty, onDetails }: {
   item: MenuItem;
   cart: Cart;
   money: (n: number) => string;
   onQty: (key: string, delta: number) => void;
+  onDetails: () => void;
 }) {
   // Items with a half-plate price get a Full and a Half row; everything else is unchanged
   const portions = hasHalf(item)
@@ -235,8 +255,8 @@ function ItemCard({ item, cart, money, onQty }: {
       </div>
       <div className="item-body">
         <h3 className="item-name">{item.name}</h3>
-        {/* Always present (even empty) so every card has the same text area */}
-        <p className="item-desc" title={item.description || undefined} aria-hidden={!item.description}>{item.description}</p>
+        {/* Always present (even empty) so every card has the same text area; "See more" opens the full text and ingredients */}
+        <ExpandableText text={item.description} className="item-desc" onMore={onDetails} forceMore={!!item.ingredients} reserve />
         {portions.map(({ portion, price }) => {
           const key = cartKey(item.id, portion);
           const qty = cart[key] || 0;

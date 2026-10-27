@@ -136,7 +136,7 @@ export default function OrderStatus() {
           )}
           {order.paymentStatus !== 'paid' && (
             <>
-              {order.paymentStatus === 'unpaid' && <p className="muted" style={{ marginBottom: 'var(--space-4)' }}>Kindly settle your bill at the counter. Online checkout is on the way!</p>}
+              {order.paymentStatus === 'unpaid' && <p className="muted" style={{ marginBottom: 'var(--space-4)' }}>Please settle your bill at the counter.</p>}
               {SHOW_PAY_ONLINE_BUTTON && (
                 <button className="btn btn-primary btn-block btn-lg" onClick={() => setPaying(true)}>
                   Pay online · {money(order.totalAmount)}

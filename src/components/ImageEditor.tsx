@@ -69,7 +69,7 @@ export default function ImageEditor({ src, onSave, onCancel }: Props) {
         <Cropper
           ref={cropperRef}
           src={src}
-          style={{ height: 340, width: '100%' }}
+          style={{ height: 'min(340px, 50vh)', width: '100%' }}
           aspectRatio={MENU_PHOTO.width / MENU_PHOTO.height}
           viewMode={1}
           autoCropArea={1}
@@ -77,9 +77,6 @@ export default function ImageEditor({ src, onSave, onCancel }: Props) {
           guides
         />
       </div>
-      <p className="field-hint" style={{ marginTop: 0 }}>
-        Drag the frame to choose what shows. Every menu photo uses the same 4:3 frame and is saved at {MENU_PHOTO.width}×{MENU_PHOTO.height}, so all items look consistent.
-      </p>
       <div className="stack" style={{ gap: 'var(--space-3)' }}>
         <div className="row">
           <button className="btn btn-secondary btn-sm" onClick={() => cropper()?.rotate(-90)}>Rotate left</button>

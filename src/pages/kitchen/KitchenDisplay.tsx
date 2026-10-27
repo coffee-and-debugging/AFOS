@@ -122,7 +122,7 @@ export default function KitchenDisplay() {
       <PageHeader
         icon="kitchen"
         title="Kitchen Display"
-        subtitle={live === 'live' ? 'Live: new orders ring the bell instantly' : 'Reconnecting… checking for orders every 20 seconds'}
+        subtitle={live === 'live' ? 'Live' : 'Reconnecting…'}
         actions={
           <button
             className="btn btn-secondary"

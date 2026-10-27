@@ -90,6 +90,7 @@ model MenuItem {
   id          Int          @id @default(autoincrement())
   name        String
   description String       @default("")
+  ingredients String       @default("") // optional, display only (shown to guests); not tied to inventory
   price       Float
   halfPrice   Float? // optional half-plate price; when set, guests and the POS can order a half plate
   category    String
@@ -101,7 +102,8 @@ model MenuItem {
   @@index([category])
 }
 
-// Ingredients consumed per unit of a menu item; deducted from stock when ordered.
+// Optional inventory link: quantities consumed per unit of a menu item, deducted from inventory when ordered
+// (e.g. menu "Water bottle" → 1 pcs of inventory "Water bottle"). Menu items without links are not tracked.
 model RecipeItem {
   menuItemId  Int
   menuItem    MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
