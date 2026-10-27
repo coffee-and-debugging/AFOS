@@ -153,14 +153,16 @@ function PurchaseList() {
   );
 }
 
-// With inPacks, quantity and unit cost are per pack; the API converts to the item's base unit.
-interface Line { stockItemId: string; quantity: string; unitCost: string; inPacks: boolean }
-const EMPTY_LINE: Line = { stockItemId: '', quantity: '', unitCost: '', inPacks: false };
+// Free-text item and unit. Bought in an item's pack unit, quantity and cost are per pack;
+// the API converts to the item's base unit. A new item name creates the inventory item.
+interface Line { name: string; unit: string; quantity: string; unitCost: string }
+const EMPTY_LINE: Line = { name: '', unit: '', quantity: '', unitCost: '' };
+const findByName = <T extends { name: string }>(list: T[], name: string) => list.find((x) => x.name.trim().toLowerCase() === name.trim().toLowerCase());
 
 function PurchaseForm({ suppliers, stock, onClose, onSaved }: { suppliers: Supplier[]; stock: StockItem[]; onClose: () => void; onSaved: () => void }) {
   const { money } = useRestaurant();
   const toast = useToast();
-  const [supplierId, setSupplierId] = useState(suppliers[0]?.id ?? '');
+  const [supplierName, setSupplierName] = useState(suppliers[0]?.name ?? '');
   const [invoiceNo, setInvoiceNo] = useState('');
   const [date, setDate] = useState(toDateInput(new Date()));
   const [paid, setPaid] = useState(true);
@@ -173,13 +175,14 @@ function PurchaseForm({ suppliers, stock, onClose, onSaved }: { suppliers: Suppl
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    const items = lines.filter((l) => l.stockItemId).map((l) => ({ stockItemId: Number(l.stockItemId), quantity: Number(l.quantity), unitCost: Number(l.unitCost), inPacks: l.inPacks }));
+    const items = lines.filter((l) => l.name.trim()).map((l) => ({ name: l.name.trim(), unit: l.unit.trim(), quantity: Number(l.quantity), unitCost: Number(l.unitCost) }));
     if (!items.length) return toast.error('Add at least one item');
     setSaving(true);
     try {
       const [y, m, d] = date.split('-').map(Number);
       await api.purchases.create({
-        supplierId: supplierId || undefined,
+        supplierId: findByName(suppliers, supplierName)?.id,
+        supplierName: supplierName.trim() || undefined,
         invoiceNo,
         date: new Date(y, m - 1, d, 12).toISOString(),
         notes,
@@ -209,56 +212,51 @@ function PurchaseForm({ suppliers, stock, onClose, onSaved }: { suppliers: Suppl
         <div className="grid-3">
           <label className="field">
             <span className="field-label">Supplier</span>
-            <select className="input" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
-              <option value="">— None —</option>
-              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            <input className="input" data-icon="truck" list="purchase-suppliers" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} placeholder="Supplier name" />
+            <datalist id="purchase-suppliers">{suppliers.map((s) => <option key={s.id} value={s.name} />)}</datalist>
           </label>
-          <label className="field"><span className="field-label">Invoice no.</span><input className="input" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} /></label>
-          <label className="field"><span className="field-label">Date</span><input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></label>
+          <label className="field"><span className="field-label">Invoice no.</span><input className="input" data-icon="receipt" value={invoiceNo} placeholder="Invoice number" onChange={(e) => setInvoiceNo(e.target.value)} /></label>
+          <label className="field"><span className="field-label">Date</span><input className="input" data-icon="calendar" type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></label>
         </div>
 
         <div className="field-label" style={{ marginBottom: 'var(--space-2)' }}>Items</div>
-        {stock.length === 0 && <p className="alert alert-warning">Add items on the Inventory page first.</p>}
+        <datalist id="purchase-items">{stock.map((s) => <option key={s.id} value={s.name} />)}</datalist>
         {lines.map((l, i) => {
-          const item = stock.find((s) => String(s.id) === l.stockItemId);
+          const item = findByName(stock, l.name);
+          const units = item ? [item.unit, ...(item.packUnit ? [item.packUnit] : [])] : [];
           return (
             <div key={i} className="line-editor packs">
-              <select
-                className="input"
-                value={l.stockItemId}
+              <input
+                className="input" data-icon="box"
+                list="purchase-items"
+                value={l.name}
                 onChange={(e) => {
-                  const s = stock.find((x) => String(x.id) === e.target.value);
-                  // Items with a pack size are usually bought by the pack
-                  const inPacks = Boolean(s?.packUnit && s.unitsPerPack);
-                  const cost = s ? (inPacks ? s.costPerUnit * s.unitsPerPack! : s.costPerUnit) : 0;
-                  setLine(i, { stockItemId: e.target.value, inPacks, unitCost: s ? String(Math.round(cost * 100) / 100) : '' });
+                  const name = e.target.value;
+                  const match = findByName(stock, name);
+                  if (!match || match === item) return setLine(i, { name });
+                  // Known item: items with a pack size are usually bought by the pack
+                  const inPacks = Boolean(match.packUnit && match.unitsPerPack);
+                  const cost = inPacks ? match.costPerUnit * match.unitsPerPack! : match.costPerUnit;
+                  setLine(i, { name, unit: inPacks ? match.packUnit! : match.unit, unitCost: String(Math.round(cost * 100) / 100) });
                 }}
-                aria-label="Inventory item"
-              >
-                <option value="">Choose item…</option>
-                {stock.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.unit})</option>)}
-              </select>
-              <input className="input" type="number" step="any" min="0" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} placeholder="Qty" aria-label="Quantity" required={!!l.stockItemId} />
-              <select
-                className="input"
-                value={l.inPacks ? 'pack' : 'unit'}
-                disabled={!item?.packUnit}
-                onChange={(e) => {
-                  const inPacks = e.target.value === 'pack';
-                  const size = item?.unitsPerPack || 1;
-                  const cost = Number(l.unitCost);
-                  // Keep the cost consistent with the unit it is entered in
-                  const unitCost = l.unitCost === '' ? '' : String(Math.round((inPacks ? cost * size : cost / size) * 10000) / 10000);
-                  setLine(i, { inPacks, unitCost });
-                }}
-                aria-label="Counted in"
+                placeholder="Item"
+                aria-label="Item"
+              />
+              <input className="input" data-icon="hash" type="number" step="any" min="0" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} placeholder="Qty" aria-label="Quantity" required={!!l.name.trim()} />
+              <input
+                className="input" data-icon="ruler"
+                list={`purchase-units-${i}`}
+                value={l.unit}
+                onChange={(e) => setLine(i, { unit: e.target.value })}
+                placeholder="Unit"
+                aria-label="Unit"
+                required={!!l.name.trim()}
                 title={item?.packUnit ? `1 ${item.packUnit} = ${item.unitsPerPack} ${item.unit}` : undefined}
-              >
-                <option value="unit">{item?.unit ?? 'unit'}</option>
-                {item?.packUnit && <option value="pack">{item.packUnit} ({item.unitsPerPack})</option>}
-              </select>
-              <input className="input" type="number" step="any" min="0" value={l.unitCost} onChange={(e) => setLine(i, { unitCost: e.target.value })} placeholder={`Cost / ${l.inPacks && item?.packUnit ? item.packUnit : item?.unit ?? 'unit'}`} aria-label="Unit cost" required={!!l.stockItemId} />
+              />
+              <datalist id={`purchase-units-${i}`}>
+                {(units.length ? units : ['pcs', 'kg', 'g', 'L', 'ml', 'pack', 'box']).map((u) => <option key={u} value={u} />)}
+              </datalist>
+              <input className="input" data-icon="money" type="number" step="any" min="0" value={l.unitCost} onChange={(e) => setLine(i, { unitCost: e.target.value })} placeholder={`Cost / ${l.unit.trim() || 'unit'}`} aria-label="Unit cost" required={!!l.name.trim()} />
               <button type="button" className="btn btn-ghost btn-icon" onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))} disabled={lines.length === 1} aria-label="Remove line"><Icon name="close" size={16} /></button>
             </div>
           );
@@ -268,10 +266,10 @@ function PurchaseForm({ suppliers, stock, onClose, onSaved }: { suppliers: Suppl
         </button>
 
         <div className="grid-2 section-gap">
-          <label className="field"><span className="field-label">Notes</span><input className="input" value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
+          <label className="field"><span className="field-label">Notes</span><input className="input" data-icon="note" value={notes} placeholder="Optional" onChange={(e) => setNotes(e.target.value)} /></label>
           <label className="field">
             <span className="field-label">Payment</span>
-            <select className="input" value={paid ? 'paid' : 'unpaid'} onChange={(e) => setPaid(e.target.value === 'paid')}>
+            <select className="input" data-icon="card" value={paid ? 'paid' : 'unpaid'} onChange={(e) => setPaid(e.target.value === 'paid')}>
               <option value="paid">Paid</option>
               <option value="unpaid">Unpaid (on credit)</option>
             </select>
@@ -366,12 +364,12 @@ function SupplierForm({ supplier, onClose, onSaved }: { supplier: Supplier | nul
       </>}
     >
       <form id="supplier-form" onSubmit={submit}>
-        <label className="field"><span className="field-label">Name</span><input className="input" value={form.name} onChange={set('name')} required autoFocus /></label>
+        <label className="field"><span className="field-label">Name</span><input className="input" data-icon="truck" value={form.name} placeholder="Supplier name" onChange={set('name')} required autoFocus /></label>
         <div className="grid-2">
-          <label className="field"><span className="field-label">Phone</span><input className="input" type="tel" value={form.phone} onChange={set('phone')} /></label>
-          <label className="field"><span className="field-label">Email</span><input className="input" type="email" value={form.email} onChange={set('email')} /></label>
+          <label className="field"><span className="field-label">Phone</span><input className="input" data-icon="phone" type="tel" value={form.phone} placeholder="98XXXXXXXX" onChange={set('phone')} /></label>
+          <label className="field"><span className="field-label">Email</span><input className="input" data-icon="mail" type="email" value={form.email} placeholder="name@example.com" onChange={set('email')} /></label>
         </div>
-        <label className="field" style={{ marginBottom: 0 }}><span className="field-label">Address</span><input className="input" value={form.address} onChange={set('address')} /></label>
+        <label className="field" style={{ marginBottom: 0 }}><span className="field-label">Address</span><input className="input" data-icon="pin" value={form.address} placeholder="Supplier address" onChange={set('address')} /></label>
       </form>
     </Modal>
   );

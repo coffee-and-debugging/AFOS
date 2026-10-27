@@ -11,6 +11,7 @@ const prisma = require('./prisma');
 const events = require('./lib/events');
 const { requireAuth, ROLES } = require('./middleware/auth');
 const { version } = require('./package.json');
+// Developed by Unique Adhikari
 
 process.on('unhandledRejection', (reason) => {
   logger.error('unhandled promise rejection', { err: reason });
@@ -83,6 +84,7 @@ app.use('/api/purchases', require('./routes/purchases'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/staff', require('./routes/staff'));
 app.use('/api/payments', require('./routes/payments'));
+app.use('/api/chat', require('./routes/chat'));
 // Live updates for staff screens (new orders → kitchen bell, low-stock popups)
 app.get('/api/events', requireAuth(ROLES.STAFF), events.stream);
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));

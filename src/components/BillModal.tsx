@@ -57,7 +57,7 @@ export default function BillModal({ order, onClose, onPaid }: { order: Order; on
       </ul>
       <label className="field section-gap">
         <span className="field-label">Discount ({restaurant.currency})</span>
-        <input className="input" type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder="0" />
+        <input className="input" data-icon="money" type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder="0" />
       </label>
       <Totals totals={totals} />
       <div className="section-gap"><PaymentPanel total={totals.totalAmount} method={method} onMethod={setMethod} /></div>

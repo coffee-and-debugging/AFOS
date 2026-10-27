@@ -1,6 +1,7 @@
 // Shared order logic used by guest (QR) ordering and the POS.
 const { HttpError } = require('./http');
 const { round3, changeStock } = require('./stock');
+// Developed by Unique Adhikari
 
 const MAX_QTY_PER_ITEM = 50;
 const round = (n) => Math.round(n * 100) / 100;

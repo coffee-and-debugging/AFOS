@@ -29,7 +29,7 @@ export default function PaymentPanel({ total, method, onMethod }: { total: numbe
         <>
           <label className="field" style={{ marginBottom: 0 }}>
             <span className="field-label">Cash received</span>
-            <input className="input" type="number" min="0" inputMode="decimal" value={tendered} onChange={(e) => setTendered(e.target.value)} placeholder={String(Math.ceil(total))} />
+            <input className="input" data-icon="money" type="number" min="0" inputMode="decimal" value={tendered} onChange={(e) => setTendered(e.target.value)} placeholder={String(Math.ceil(total))} />
           </label>
           {tendered !== '' && (
             <div className="change-due">

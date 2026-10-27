@@ -1,5 +1,5 @@
 import type {
-  AuthUser, Category, MenuItem, Order, OrderType, PaymentGatewayInfo, PaymentResult, Portion, Purchase, RecipeLine, Report,
+  AuthUser, Category, ChatMessage, MenuItem, Order, OrderType, PaymentGatewayInfo, PaymentResult, Portion, Purchase, RecipeLine, Report, Role,
   Restaurant, StaffCategory, StaffMember, StaffPayment, StaffPaymentMethod, StockItem, StockMovement, Supplier, Table,
 } from '../types';
 
@@ -228,6 +228,12 @@ export const api = {
       request<Order>(`/orders/${id}/pay`, json('POST', { method, discount })),
   },
 
+  chat: {
+    unread: () => request<Partial<Record<Role, number>>>('/chat/unread'),
+    list: (withRole: Role) => request<ChatMessage[]>(`/chat${query({ with: withRole })}`),
+    send: (to: Role, body: string) => request<ChatMessage>('/chat', json('POST', { to, body })),
+    markRead: (withRole: Role) => request<{ success: boolean }>('/chat/read', json('POST', { with: withRole })),
+  },
   payments: {
     gateways: () => request<PaymentGatewayInfo[]>('/payments/gateways'),
     /** Returns the form the browser must POST to eSewa */
@@ -267,12 +273,14 @@ export const api = {
     list: (range?: DateRange) => request<Purchase[]>(`/purchases${query({ ...range })}`),
     create: (data: {
       supplierId?: string;
+      /** Typed supplier name; matched case-insensitively or created */
+      supplierName?: string;
       invoiceNo?: string;
       date?: string;
       notes?: string;
       paymentStatus: 'paid' | 'unpaid';
-      /** With `inPacks`, quantity and unitCost are per pack */
-      items: { stockItemId: number; quantity: number; unitCost: number; inPacks?: boolean }[];
+      /** Free-text item and unit (a new name creates the inventory item); the unit may be the item's pack unit */
+      items: { name: string; unit: string; quantity: number; unitCost: number }[];
     }) => request<Purchase>('/purchases', json('POST', data)),
     setPaid: (id: string, paymentStatus: 'paid' | 'unpaid') => request<Purchase>(`/purchases/${id}`, json('PATCH', { paymentStatus })),
     delete: (id: string) => request<{ success: boolean }>(`/purchases/${id}`, json('DELETE')),
@@ -280,12 +288,12 @@ export const api = {
 
   staff: {
     list: (period?: string) => request<StaffMember[]>(`/staff${query({ period })}`),
-    create: (data: Partial<StaffMember> & { password?: string }) => request<StaffMember>('/staff', json('POST', data)),
-    update: (id: string, data: Partial<StaffMember> & { password?: string }) => request<StaffMember>(`/staff/${id}`, json('PUT', data)),
+    create: (data: Partial<StaffMember>) => request<StaffMember>('/staff', json('POST', data)),
+    update: (id: string, data: Partial<StaffMember>) => request<StaffMember>(`/staff/${id}`, json('PUT', data)),
     setActive: (id: string, active: boolean) => request<StaffMember>(`/staff/${id}/active`, json('PATCH', { active })),
     payments: (id: string) => request<StaffPayment[]>(`/staff/${id}/payments`),
     allPayments: (params: { period?: string } & Partial<DateRange> = {}) => request<StaffPayment[]>(`/staff/payments${query(params)}`),
-    pay: (id: string, data: Partial<StaffPayment>) => request<StaffPayment>(`/staff/${id}/payments`, json('POST', data)),
+    pay: (id: string, data: Partial<StaffPayment> & { amount?: number }) => request<StaffPayment>(`/staff/${id}/payments`, json('POST', data)),
     deletePayment: (paymentId: string) => request<{ success: boolean }>(`/staff/payments/${paymentId}`, json('DELETE')),
     categories: {
       list: () => request<StaffCategory[]>('/staff/categories'),

@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../lib/config');
 const prisma = require('../prisma');
 const { hasFeature } = require('../lib/plans');
+// Developed by Unique Adhikari
 
 // Who may do what. admin = owner/manager, cashier = front of house, chef = kitchen.
 // "staff" accounts exist only for payroll and can never sign in.
@@ -12,6 +13,9 @@ const ROLES = {
   KITCHEN: ['admin', 'chef'],
 };
 const LOGIN_ROLES = ROLES.STAFF;
+// The built-in admin, kitchen and cashier sign-ins (fixed ids from prisma/seed.js). They are app
+// accounts, not employees, so staff lists and headcounts leave them out.
+const SYSTEM_ACCOUNT_IDS = ['1', '2', '3'];
 
 // Tokens live 12h, so the live account is re-checked (cached briefly) on each request:
 // deactivating someone or changing their role takes effect within ACCOUNT_TTL_MS.
@@ -70,4 +74,4 @@ function requireFeature(feature) {
   };
 }
 
-module.exports = { requireAuth, requireFeature, forgetAccount, ROLES, LOGIN_ROLES };
+module.exports = { requireAuth, requireFeature, forgetAccount, ROLES, LOGIN_ROLES, SYSTEM_ACCOUNT_IDS };

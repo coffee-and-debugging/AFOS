@@ -39,9 +39,11 @@ model StaffCategory {
   staff       User[]
 }
 
-// One payout to a staff member: salary for a period plus bonus/overtime, minus deductions.
+// One payout to a staff member: salary for a period plus bonus/overtime, minus deductions,
+// or an advance (type "advance", amount in netAmount) taken before payday.
 model StaffPayment {
   id             String   @id @default(uuid())
+  type           String   @default("salary") // salary | advance
   userId         String
   user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
   period         String // YYYY-MM the payment covers
@@ -257,4 +259,18 @@ model PurchaseItem {
   quantity    Float
   unitCost    Float
   subtotal    Float
+}
+
+// Staff chat between the kitchen, the cashier and the manager (one conversation per pair of roles).
+model ChatMessage {
+  id        String    @id @default(uuid())
+  fromRole  String // admin | cashier | chef
+  toRole    String
+  fromName  String
+  body      String
+  readAt    DateTime? // when the receiving role opened the conversation
+  createdAt DateTime  @default(now())
+
+  @@index([fromRole, toRole, createdAt])
+  @@index([toRole, readAt])
 }

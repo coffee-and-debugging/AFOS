@@ -85,19 +85,19 @@ function SettingsForm({ initial }: { initial: Restaurant }) {
             </span>
           </div>
           <div className="grid-2">
-            <label className="field"><span className="field-label">Name</span><input className="input" value={form.name} onChange={set('name')} required /></label>
-            <label className="field"><span className="field-label">Tagline</span><input className="input" value={form.tagline} onChange={set('tagline')} placeholder="Shown on guest menus" /></label>
-            <label className="field"><span className="field-label">Address</span><input className="input" value={form.address} onChange={set('address')} /></label>
-            <label className="field"><span className="field-label">Phone</span><input className="input" value={form.phone} onChange={set('phone')} /></label>
+            <label className="field"><span className="field-label">Name</span><input className="input" data-icon="store" value={form.name} placeholder="Restaurant name" onChange={set('name')} required /></label>
+            <label className="field"><span className="field-label">Tagline</span><input className="input" data-icon="note" value={form.tagline} onChange={set('tagline')} placeholder="Shown on guest menus" /></label>
+            <label className="field"><span className="field-label">Address</span><input className="input" data-icon="pin" value={form.address} placeholder="Street, city" onChange={set('address')} /></label>
+            <label className="field"><span className="field-label">Phone</span><input className="input" data-icon="phone" value={form.phone} placeholder="98XXXXXXXX" onChange={set('phone')} /></label>
           </div>
 
           <h2 className="card-title" style={{ margin: 'var(--space-3) 0 var(--space-4)' }}>Billing</h2>
           <div className="grid-3">
-            <label className="field"><span className="field-label">Currency symbol</span><input className="input" value={form.currency} onChange={set('currency')} required /></label>
-            <label className="field"><span className="field-label">VAT / tax %</span><input className="input" type="number" step="0.01" min="0" max="100" value={form.taxRate} onChange={set('taxRate')} required /></label>
-            <label className="field"><span className="field-label">Service charge %</span><input className="input" type="number" step="0.01" min="0" max="100" value={form.serviceChargeRate} onChange={set('serviceChargeRate')} required /></label>
+            <label className="field"><span className="field-label">Currency symbol</span><input className="input" data-icon="money" value={form.currency} placeholder="Rs." onChange={set('currency')} required /></label>
+            <label className="field"><span className="field-label">VAT / tax %</span><input className="input" data-icon="percent" type="number" step="0.01" min="0" max="100" value={form.taxRate} placeholder="13" onChange={set('taxRate')} required /></label>
+            <label className="field"><span className="field-label">Service charge %</span><input className="input" data-icon="percent" type="number" step="0.01" min="0" max="100" value={form.serviceChargeRate} placeholder="10" onChange={set('serviceChargeRate')} required /></label>
           </div>
-          <label className="field"><span className="field-label">Receipt footer</span><input className="input" value={form.receiptFooter} onChange={set('receiptFooter')} /></label>
+          <label className="field"><span className="field-label">Receipt footer</span><input className="input" data-icon="receipt" value={form.receiptFooter} placeholder="Thank you for dining with us!" onChange={set('receiptFooter')} /></label>
 
           <h2 className="card-title" style={{ margin: 'var(--space-3) 0 var(--space-2)' }}>Table QR codes</h2>
           <div className="qr-mode" role="radiogroup" aria-label="Guest ordering address">
@@ -115,7 +115,7 @@ function SettingsForm({ initial }: { initial: Restaurant }) {
               <span style={{ flex: 1, minWidth: 0 }}>
                 <strong>Manual</strong>
                 <input
-                  className="input"
+                  className="input" data-icon="link"
                   value={manualBase}
                   onChange={(e) => { setManualBase(e.target.value); setQrMode('manual'); }}
                   onFocus={() => setQrMode('manual')}

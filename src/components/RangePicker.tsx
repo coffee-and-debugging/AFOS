@@ -33,9 +33,9 @@ export default function RangePicker({ preset, onChange }: { preset: RangePreset;
       </div>
       {preset === 'custom' && (
         <div className="row">
-          <input type="date" className="input input-sm" value={from} max={to} onChange={(e) => setCustom(e.target.value, to)} aria-label="From date" />
+          <input type="date" className="input input-sm" data-icon="calendar" value={from} max={to} onChange={(e) => setCustom(e.target.value, to)} aria-label="From date" />
           <span className="subtle">to</span>
-          <input type="date" className="input input-sm" value={to} min={from} onChange={(e) => setCustom(from, e.target.value)} aria-label="To date" />
+          <input type="date" className="input input-sm" data-icon="calendar" value={to} min={from} onChange={(e) => setCustom(from, e.target.value)} aria-label="To date" />
         </div>
       )}
     </div>

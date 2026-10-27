@@ -261,7 +261,7 @@ export default function CustomerPage() {
               {charges && <p className="subtle" style={{ marginTop: 'calc(-1 * var(--space-3))', marginBottom: 'var(--space-4)' }}>Plus {charges}, shown on your bill.</p>}
               <label className="field" style={{ marginBottom: 0 }}>
                 <span className="field-label">Note for the kitchen <span className="subtle">(optional)</span></span>
-                <textarea className="input" rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Allergies, extra spicy, no onions…" />
+                <textarea className="input" data-icon="note" rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Allergies, extra spicy, no onions…" />
               </label>
             </>
           )}

@@ -180,7 +180,7 @@ export default function Pos() {
                 {type === 'dine_in' && (
                   <label className="field" style={{ marginBottom: 'var(--space-3)' }}>
                     <span className="visually-hidden">Table</span>
-                    <select className="input" value={tableId} onChange={(e) => setTableId(e.target.value)}>
+                    <select className="input" data-icon="table" value={tableId} onChange={(e) => setTableId(e.target.value)}>
                       <option value="">Choose table…</option>
                       {(tables.data ?? []).map((t) => (
                         <option key={t.id} value={t.id}>Table {t.number}{t.openOrders ? ` · occupied (${money(t.openAmount)})` : ''}</option>
@@ -211,8 +211,8 @@ export default function Pos() {
                       </div>
                     ))}
                     <div className="grid-2 section-gap" style={{ gap: 'var(--space-2)' }}>
-                      <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Kitchen note" aria-label="Kitchen note" />
-                      <input className="input" type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder={`Discount (${restaurant.currency})`} aria-label="Discount" />
+                      <input className="input" data-icon="note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Kitchen note" aria-label="Kitchen note" />
+                      <input className="input" data-icon="money" type="number" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder={`Discount (${restaurant.currency})`} aria-label="Discount" />
                     </div>
                   </div>
                 )}

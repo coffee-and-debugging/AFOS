@@ -88,7 +88,7 @@ export default function TablesManagement() {
           <form className="inline-form" onSubmit={add}>
             <label className="field" style={{ minWidth: 120 }}>
               <span className="visually-hidden">New table number</span>
-              <input type="number" min="1" className="input" value={newNumber} onChange={(e) => setNewNumber(e.target.value)} placeholder="Table no." required />
+              <input type="number" min="1" className="input" data-icon="table" value={newNumber} onChange={(e) => setNewNumber(e.target.value)} placeholder="Table no." required />
             </label>
             <button type="submit" className="btn btn-primary" disabled={adding}><Icon name="plus" size={16} /> Add table</button>
           </form>

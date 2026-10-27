@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import CustomerPage from './pages/customer/CustomerPage';
 import OrderStatus from './pages/customer/OrderStatus';
 import PaymentReturn from './pages/customer/PaymentReturn';
+// Developed by Unique Adhikari
 
 // Staff pages load on demand, so guests' phones only download the ordering screens.
 const Dashboard = lazy(() => import('./pages/admin/Dashboard'));

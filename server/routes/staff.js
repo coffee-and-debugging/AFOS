@@ -1,8 +1,7 @@
 // Staff directory, roles and payroll — managers only.
 const express = require('express');
-const bcrypt = require('bcrypt');
 const prisma = require('../prisma');
-const { requireAuth, forgetAccount, ROLES } = require('../middleware/auth');
+const { requireAuth, forgetAccount, ROLES, SYSTEM_ACCOUNT_IDS } = require('../middleware/auth');
 const { HttpError, asyncHandler } = require('../lib/http');
 const { round } = require('../lib/orders');
 
@@ -10,10 +9,8 @@ const router = express.Router();
 router.use(requireAuth(ROLES.ADMIN));
 router.use('/categories', require('./staffCategories'));
 
-const STAFF_ROLES = ['admin', 'cashier', 'chef', 'staff']; // staff = payroll only, no app access
 const PAY_METHODS = ['cash', 'bank', 'esewa', 'khalti'];
 const PERIOD = /^\d{4}-(0[1-9]|1[0-2])$/;
-const MIN_PASSWORD = 6;
 
 // Never send password hashes to the browser
 const publicFields = {
@@ -43,30 +40,17 @@ async function parseCategoryId(value) {
   return id;
 }
 
-/** Validates staff details; `existing` is the current record when editing. */
+/**
+ * Validates staff details; `existing` is the current record when editing.
+ * New staff are payroll-only (role "staff", no sign-in). Role and sign-in are never changed here.
+ */
 async function parseStaff(body = {}, existing = null) {
   const name = String(body.name ?? existing?.name ?? '').trim();
-  const role = String(body.role ?? existing?.role ?? '');
   if (!name) throw new HttpError(400, 'Name is required');
-  if (!STAFF_ROLES.includes(role)) throw new HttpError(400, `Role must be one of: ${STAFF_ROLES.join(', ')}`);
-
-  const canLogin = role !== 'staff';
-  const username = canLogin ? String(body.username ?? existing?.username ?? '').trim().toLowerCase() : null;
-  const password = body.password ? String(body.password) : '';
-  if (canLogin) {
-    if (!/^[a-z0-9._-]{3,32}$/.test(username)) {
-      throw new HttpError(400, 'Username must be 3–32 characters: letters, numbers, dot, dash or underscore');
-    }
-    if (!existing?.password && !password) throw new HttpError(400, 'Set a password so they can sign in');
-  }
-  if (password && password.length < MIN_PASSWORD) throw new HttpError(400, `Password must be at least ${MIN_PASSWORD} characters`);
 
   return {
     name,
-    role,
-    username,
-    // Payroll-only staff lose any old credentials; otherwise keep the current password unless a new one is set
-    ...(!canLogin ? { password: null } : password ? { password: await bcrypt.hash(password, 10) } : {}),
+    ...(!existing && { role: 'staff', username: null, password: null }),
     position: String(body.position ?? existing?.position ?? '').trim().slice(0, 60),
     categoryId: body.categoryId !== undefined ? await parseCategoryId(body.categoryId) : (existing?.categoryId ?? null),
     phone: String(body.phone ?? existing?.phone ?? '').trim().slice(0, 30),
@@ -92,10 +76,11 @@ router.get('/', asyncHandler(async (req, res) => {
   const period = PERIOD.test(String(req.query.period)) ? String(req.query.period) : currentPeriod();
   // ?category=<id> or ?category=none for uncategorised staff
   const { category } = req.query;
-  const where = category === 'none' ? { categoryId: null } : category ? { categoryId: Number(category) || -1 } : {};
+  const byCategory = category === 'none' ? { categoryId: null } : category ? { categoryId: Number(category) || -1 } : {};
+  const where = { ...byCategory, id: { notIn: SYSTEM_ACCOUNT_IDS } };
   const [staff, paid] = await Promise.all([
     prisma.user.findMany({ where, select: publicFields, orderBy: [{ active: 'desc' }, { name: 'asc' }] }),
-    prisma.staffPayment.groupBy({ by: ['userId'], where: { period }, _sum: { netAmount: true }, _count: true }),
+    prisma.staffPayment.groupBy({ by: ['userId', 'type'], where: { period }, _sum: { netAmount: true }, _count: true }),
   ]);
   const lastPayments = await prisma.staffPayment.findMany({
     distinct: ['userId'],
@@ -103,13 +88,15 @@ router.get('/', asyncHandler(async (req, res) => {
     select: { userId: true, paidAt: true, period: true, netAmount: true },
   });
   res.json(staff.map((s) => {
-    const p = paid.find((x) => x.userId === s.id);
+    const salary = paid.find((x) => x.userId === s.id && x.type !== 'advance');
+    const advance = paid.find((x) => x.userId === s.id && x.type === 'advance');
     return {
       ...s,
       canLogin: s.role !== 'staff',
       period,
-      paidThisPeriod: round(p?._sum.netAmount || 0),
-      paymentsThisPeriod: p?._count || 0,
+      paidThisPeriod: round((salary?._sum.netAmount || 0) + (advance?._sum.netAmount || 0)),
+      paymentsThisPeriod: salary?._count || 0, // salary payouts only; advances are counted separately
+      advancesThisPeriod: round(advance?._sum.netAmount || 0),
       lastPayment: lastPayments.find((x) => x.userId === s.id) || null,
     };
   }));
@@ -125,12 +112,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
   const existing = await prisma.user.findUnique({ where: { id: req.params.id } });
   if (!existing) throw new HttpError(404, 'Staff member not found');
   const data = await parseStaff(req.body, existing);
-  if (existing.id === req.user.id && data.role !== 'admin') throw new HttpError(409, 'You cannot remove your own manager role');
-
-  const updated = await prisma.$transaction(async (tx) => {
-    await assertAdminRemains(tx, existing.id, { role: data.role, active: existing.active });
-    return tx.user.update({ where: { id: existing.id }, data, select: publicFields });
-  });
+  const updated = await prisma.user.update({ where: { id: existing.id }, data, select: publicFields });
   forgetAccount(existing.id);
   res.json(updated);
 }));
@@ -156,6 +138,18 @@ function parsePayment(body = {}, staff) {
   if (!PERIOD.test(period)) throw new HttpError(400, 'Period must look like 2026-10');
   const method = String(body.method || 'cash');
   if (!PAY_METHODS.includes(method)) throw new HttpError(400, `Payment method must be one of: ${PAY_METHODS.join(', ')}`);
+  const note = String(body.note || '').trim().slice(0, 300);
+  const paidAt = body.paidAt ? parseDateOnly(body.paidAt, 'Payment date') : new Date();
+
+  // Advance before payday: only an amount; it is deducted from that month's salary later
+  if (body.type === 'advance') {
+    const amount = money(body.amount, 'Advance amount');
+    if (!(amount > 0)) throw new HttpError(400, 'Enter the advance amount');
+    return {
+      type: 'advance', period, method, baseAmount: 0, bonus: 0, overtimeHours: 0, overtimeRate: 0, overtimeAmount: 0, deductions: 0,
+      netAmount: amount, note, paidAt,
+    };
+  }
 
   const baseAmount = money(body.baseAmount ?? staff.baseSalary, 'Base amount');
   const bonus = money(body.bonus, 'Bonus');
@@ -166,11 +160,7 @@ function parsePayment(body = {}, staff) {
   const netAmount = round(baseAmount + bonus + overtimeAmount - deductions);
   if (netAmount < 0) throw new HttpError(400, 'Deductions cannot exceed the total pay');
 
-  return {
-    period, method, baseAmount, bonus, overtimeHours, overtimeRate, overtimeAmount, deductions, netAmount,
-    note: String(body.note || '').trim().slice(0, 300),
-    paidAt: body.paidAt ? parseDateOnly(body.paidAt, 'Payment date') : new Date(),
-  };
+  return { type: 'salary', period, method, baseAmount, bonus, overtimeHours, overtimeRate, overtimeAmount, deductions, netAmount, note, paidAt };
 }
 
 // All payouts in a period or date range, for the payroll ledger

@@ -231,7 +231,7 @@ function CategoryManager({ categories, items, active, onSelect, onAdded }: {
         <form className="inline-form" onSubmit={add}>
           <label className="field">
             <span className="visually-hidden">New category name</span>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="New category, e.g. Desserts" required />
+            <input className="input" data-icon="tag" value={name} onChange={(e) => setName(e.target.value)} placeholder="New category name" required />
           </label>
           <button className="btn btn-secondary" disabled={saving}><Icon name="plus" size={16} /> Add category</button>
         </form>
@@ -295,7 +295,7 @@ function RemoveCategory({ category, categories, items, onClose, onRemoved }: {
           </p>
           <label className="field" style={{ marginBottom: 0 }}>
             <span className="field-label">Move {plural} to</span>
-            <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
+            <select className="input" data-icon="tag" value={target} onChange={(e) => setTarget(e.target.value)}>
               {others.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
             </select>
           </label>
@@ -418,29 +418,29 @@ function ItemForm({ item, categories, stock, onSaved, onClose }: {
         <form id="item-form" onSubmit={submit}>
           <label className="field">
             <span className="field-label">Name</span>
-            <input className="input" value={form.name} onChange={set('name')} required />
+            <input className="input" data-icon="food" value={form.name} placeholder="Dish name" onChange={set('name')} required />
           </label>
           <label className="field">
             <span className="field-label">Description</span>
-            <textarea className="input" rows={2} value={form.description} onChange={set('description')} />
+            <textarea className="input" data-icon="note" rows={2} value={form.description} placeholder="About this dish" onChange={set('description')} />
           </label>
           <label className="field">
             <span className="field-label">Ingredients <span className="subtle">(optional)</span></span>
-            <input className="input" value={form.ingredients} onChange={set('ingredients')} maxLength={1000} placeholder="e.g. Chicken, cheddar, lettuce, house sauce" />
+            <input className="input" data-icon="list" value={form.ingredients} onChange={set('ingredients')} maxLength={1000} placeholder="Chicken, cheese, lettuce" />
           </label>
           {/* Equal columns with one-line labels, so all three inputs sit on the same line */}
           <div className="grid-3 price-row">
             <label className="field">
               <span className="field-label">Price</span>
-              <input type="number" step="1" min="0" className="input" value={form.price} onChange={set('price')} required />
+              <input type="number" step="1" min="0" className="input" data-icon="money" value={form.price} placeholder="0" onChange={set('price')} required />
             </label>
             <label className="field">
               <span className="field-label">Half plate price</span>
-              <input type="number" step="1" min="0" className="input" value={form.halfPrice} onChange={set('halfPrice')} placeholder="Optional" />
+              <input type="number" step="1" min="0" className="input" data-icon="money" value={form.halfPrice} onChange={set('halfPrice')} placeholder="Optional" />
             </label>
             <label className="field">
               <span className="field-label">Category</span>
-              <select className="input" value={form.category} onChange={set('category')} required>
+              <select className="input" data-icon="tag" value={form.category} onChange={set('category')} required>
                 {categories.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
               </select>
             </label>
@@ -464,11 +464,11 @@ function ItemForm({ item, categories, stock, onSaved, onClose }: {
               const unit = stock.find((s) => String(s.id) === r.stockItemId)?.unit;
               return (
                 <div key={i} className="line-editor two">
-                  <select className="input" value={r.stockItemId} onChange={(e) => setRow(i, { stockItemId: e.target.value })} aria-label="Inventory item">
+                  <select className="input" data-icon="box" value={r.stockItemId} onChange={(e) => setRow(i, { stockItemId: e.target.value })} aria-label="Inventory item">
                     <option value="">Choose inventory item…</option>
                     {stock.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.unit})</option>)}
                   </select>
-                  <input className="input" type="number" step="any" min="0" value={r.quantity} onChange={(e) => setRow(i, { quantity: e.target.value })} placeholder={unit ? `Qty (${unit})` : 'Qty'} aria-label="Quantity deducted per sale" />
+                  <input className="input" data-icon="hash" type="number" step="any" min="0" value={r.quantity} onChange={(e) => setRow(i, { quantity: e.target.value })} placeholder={unit ? `Qty (${unit})` : 'Qty'} aria-label="Quantity deducted per sale" />
                   <button type="button" className="btn btn-ghost btn-icon" onClick={() => setRecipe((rows) => rows.filter((_, j) => j !== i))} aria-label="Remove inventory link"><Icon name="close" size={16} /></button>
                 </div>
               );

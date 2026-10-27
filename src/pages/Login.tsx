@@ -59,11 +59,11 @@ export default function Login() {
             <form onSubmit={handleSubmit}>
               <label className="field">
                 <span className="field-label">Username</span>
-                <input className="input" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoFocus required />
+                <input className="input" data-icon="user" value={username} placeholder="Enter username" onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoFocus required />
               </label>
               <label className="field">
                 <span className="field-label">Password</span>
-                <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
+                <PasswordInput data-icon="lock" value={password} placeholder="Enter password" onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
               </label>
               <button type="submit" className="btn btn-flame btn-block btn-lg" disabled={loading}>
                 {loading ? 'Signing in…' : 'Sign in'}

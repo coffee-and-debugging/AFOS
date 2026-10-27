@@ -11,6 +11,8 @@ const AUDIENCE = {
   'order.created': ['admin', 'cashier', 'chef'],
   'order.updated': ['admin', 'cashier', 'chef'],
   'stock.low': ['admin', 'cashier'],
+  'chat.message': ['admin', 'cashier', 'chef'],
+  'chat.read': ['admin', 'cashier', 'chef'],
 };
 
 const clients = new Set();
@@ -42,10 +44,14 @@ function stream(req, res) {
   });
 }
 
-/** Sends an event to every connected screen whose role may see it. Never throws. */
-function publish(type, data) {
-  const roles = AUDIENCE[type];
-  if (!roles) throw new Error(`Unknown event type: ${type}`);
+/**
+ * Sends an event to every connected screen whose role may see it. Never throws.
+ * `onlyRoles` narrows the audience further, e.g. a chat message goes to its two roles only.
+ */
+function publish(type, data, onlyRoles) {
+  const audience = AUDIENCE[type];
+  if (!audience) throw new Error(`Unknown event type: ${type}`);
+  const roles = onlyRoles ? audience.filter((r) => onlyRoles.includes(r)) : audience;
   const id = nextEventId++;
   for (const client of clients) {
     if (!roles.includes(client.user.role)) continue;

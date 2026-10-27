@@ -75,7 +75,7 @@ export default function Orders() {
           ))}
         </div>
         <div className="row">
-          <select className="input input-sm" value={type} onChange={(e) => setType(e.target.value as '' | OrderType)} aria-label="Order type">
+          <select className="input input-sm" data-icon="list" value={type} onChange={(e) => setType(e.target.value as '' | OrderType)} aria-label="Order type">
             <option value="">All types</option>
             <option value="dine_in">Dine-in</option>
             <option value="takeaway">Takeaway</option>
@@ -108,7 +108,7 @@ export default function Orders() {
                       <td className="num">{money(o.totalAmount)}</td>
                       <td>
                         {o.status === 'cancelled' ? <span className="badge badge-cancelled">Cancelled</span> : (
-                          <select className="input input-sm" value={o.status} onChange={(e) => updateStatus(o, e.target.value as OrderStatus)} aria-label={`Status for ${billLabel(o)}`}>
+                          <select className="input input-sm" data-icon="list" value={o.status} onChange={(e) => updateStatus(o, e.target.value as OrderStatus)} aria-label={`Status for ${billLabel(o)}`}>
                             {ACTIVE_STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
                             {o.paymentStatus !== 'paid' && <option value="cancelled">Cancel order</option>}
                           </select>

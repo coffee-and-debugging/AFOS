@@ -3,7 +3,6 @@ import { api, getAuthUser } from '../../api/client';
 import { PageHeader } from '../../components/AppShell';
 import Icon from '../../components/Icon';
 import Modal from '../../components/Modal';
-import PasswordInput from '../../components/PasswordInput';
 import Stat from '../../components/Stat';
 import { EmptyState, ErrorState, LoadingState } from '../../components/States';
 import { usePolling, useRestaurant, useToast } from '../../hooks';
@@ -12,12 +11,6 @@ import { downloadCsv, formatDate } from '../../lib/format';
 import type { CategoryColor, PayrollMethod, StaffCategory, StaffMember, StaffPayment, StaffRole } from '../../types';
 
 const ROLE_LABEL: Record<StaffRole, string> = { admin: 'Manager', cashier: 'Cashier', chef: 'Kitchen', staff: 'Staff' };
-const ROLE_HINT: Record<StaffRole, string> = {
-  admin: 'Full access',
-  cashier: 'POS, orders and tables',
-  chef: 'Kitchen and inventory',
-  staff: 'Payroll only, no sign-in',
-};
 const METHOD_LABEL: Record<PayrollMethod, string> = { cash: 'Cash', bank: 'Bank transfer', esewa: 'eSewa', khalti: 'Khalti' };
 
 const thisMonth = () => toDateInput(new Date()).slice(0, 7);
@@ -26,13 +19,6 @@ const monthLabel = (period: string) => {
   return new Date(y, m - 1, 1).toLocaleDateString([], { month: 'long', year: 'numeric' });
 };
 const round2 = (n: number) => Math.round(n * 100) / 100;
-
-// New cashier/kitchen accounts start in the matching department when it exists
-const ROLE_CATEGORY: Partial<Record<StaffRole, string>> = { admin: 'management', cashier: 'front of house', chef: 'kitchen' };
-function defaultCategoryFor(role: StaffRole | undefined, categories: StaffCategory[]) {
-  const name = role && ROLE_CATEGORY[role];
-  return name ? categories.find((c) => c.name.toLowerCase() === name)?.id : undefined;
-}
 
 const COLORS: CategoryColor[] = ['red', 'orange', 'amber', 'green', 'blue', 'purple', 'gray'];
 type CategoryFilter = 'all' | 'none' | number;
@@ -50,8 +36,7 @@ export default function Staff() {
   const [showInactive, setShowInactive] = useState(false);
   const [category, setCategory] = useState<CategoryFilter>('all');
   const [managing, setManaging] = useState(false);
-  // 'new' opens a blank form; a role opens it ready to create that kind of sign-in account
-  const [editing, setEditing] = useState<StaffMember | 'new' | StaffRole | null>(null);
+  const [editing, setEditing] = useState<StaffMember | 'new' | null>(null);
   const [paying, setPaying] = useState<StaffMember | null>(null);
   const [history, setHistory] = useState<StaffMember | null>(null);
 
@@ -89,9 +74,9 @@ export default function Staff() {
 
   function exportCsv() {
     downloadCsv(`payroll-${period}.csv`, [
-      ['Paid on', 'Staff', 'Category', 'Role', 'Period', 'Base', 'Bonus', 'OT hours', 'OT amount', 'Deductions', 'Net', 'Method', 'Note', 'Recorded by'],
+      ['Paid on', 'Type', 'Staff', 'Category', 'Role', 'Period', 'Base', 'Bonus', 'OT hours', 'OT amount', 'Deductions', 'Net', 'Method', 'Note', 'Recorded by'],
       ...visiblePayments.map((p) => [
-        formatDate(p.paidAt), p.user?.name ?? '', p.user?.category?.name ?? '', p.user ? ROLE_LABEL[p.user.role] : '', p.period, p.baseAmount, p.bonus,
+        formatDate(p.paidAt), p.type === 'advance' ? 'Advance' : 'Salary', p.user?.name ?? '', p.user?.category?.name ?? '', p.user ? ROLE_LABEL[p.user.role] : '', p.period, p.baseAmount, p.bonus,
         p.overtimeHours, p.overtimeAmount, p.deductions, p.netAmount, METHOD_LABEL[p.method] ?? p.method, p.note, p.recordedBy,
       ]),
     ]);
@@ -104,8 +89,6 @@ export default function Staff() {
         title="Staff & Payroll"
         actions={<>
           <button className="btn btn-secondary" onClick={() => setManaging(true)}><Icon name="settings" size={16} /> Categories</button>
-          <button className="btn btn-secondary" onClick={() => setEditing('cashier')}><Icon name="pos" size={16} /> Add cashier</button>
-          <button className="btn btn-secondary" onClick={() => setEditing('chef')}><Icon name="kitchen" size={16} /> Add kitchen staff</button>
           <button className="btn btn-primary" onClick={() => setEditing('new')}><Icon name="plus" size={16} /> Add staff</button>
         </>}
       />
@@ -151,7 +134,7 @@ export default function Staff() {
             {tab === 'payroll' && visiblePayments.length > 0 && (
               <button className="btn btn-secondary btn-sm" onClick={exportCsv}><Icon name="download" size={14} /> CSV</button>
             )}
-            <input className="input input-sm" type="month" value={period} onChange={(e) => e.target.value && setPeriod(e.target.value)} aria-label="Payroll month" />
+            <input className="input input-sm" data-icon="calendar" type="month" value={period} onChange={(e) => e.target.value && setPeriod(e.target.value)} aria-label="Payroll month" />
           </div>
         </div>
 
@@ -166,7 +149,7 @@ export default function Staff() {
             <div className="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Name</th><th>Category</th><th>Role</th><th>Sign-in</th><th>Phone</th><th className="num">Base salary</th><th className="num">Paid {monthLabel(period)}</th><th /></tr>
+                  <tr><th>Name</th><th>Category</th><th>Role</th><th>Phone</th><th className="num">Base salary</th><th className="num">Paid {monthLabel(period)}</th><th /></tr>
                 </thead>
                 <tbody>
                   {visible.map((s) => (
@@ -178,11 +161,11 @@ export default function Staff() {
                       </td>
                       <td><CategoryBadge category={s.category} /></td>
                       <td><span className={`badge role-${s.role}`}>{ROLE_LABEL[s.role]}</span></td>
-                      <td className="muted">{s.canLogin ? s.username : 'No login'}</td>
                       <td className="muted">{s.phone || '—'}</td>
                       <td className="num">{money(s.baseSalary)}</td>
                       <td className="num">
-                        {s.paymentsThisPeriod ? money(s.paidThisPeriod) : <span className="muted">—</span>}
+                        {s.paidThisPeriod ? money(s.paidThisPeriod) : <span className="muted">—</span>}
+                        {s.advancesThisPeriod > 0 && <div className="cell-sub" style={{ color: 'var(--color-warning)' }}>Advance {money(s.advancesThisPeriod)}</div>}
                         {s.lastPayment && <div className="muted cell-sub">Last: {formatDate(s.lastPayment.paidAt)}</div>}
                       </td>
                       <td>
@@ -213,8 +196,7 @@ export default function Staff() {
 
       {editing && (
         <StaffForm
-          member={typeof editing === 'string' ? null : editing}
-          initialRole={typeof editing === 'string' && editing !== 'new' ? editing : undefined}
+          member={editing === 'new' ? null : editing}
           categories={categories}
           defaultCategoryId={typeof category === 'number' ? category : null}
           onClose={() => setEditing(null)}
@@ -270,7 +252,10 @@ function PaymentsTable({ payments, onChanged, showStaff }: { payments: StaffPaym
             <tr key={p.id}>
               <td className="nowrap">{formatDate(p.paidAt)}{p.note && <div className="muted cell-sub">{p.note}</div>}</td>
               {showStaff && <td>{p.user?.name}{p.user?.category && <div className="muted cell-sub">{p.user.category.name}</div>}</td>}
-              <td className="muted nowrap">{monthLabel(p.period)}</td>
+              <td className="muted nowrap">
+                {monthLabel(p.period)}
+                {p.type === 'advance' && <div><span className="badge badge-low">Advance</span></div>}
+              </td>
               <td className="num">{money(p.baseAmount)}</td>
               <td className="num">{p.bonus ? money(p.bonus) : '—'}</td>
               <td className="num">{p.overtimeAmount ? <>{money(p.overtimeAmount)}<div className="muted cell-sub">{p.overtimeHours} h × {money(p.overtimeRate)}</div></> : '—'}</td>
@@ -297,9 +282,8 @@ function PaymentsTable({ payments, onChanged, showStaff }: { payments: StaffPaym
   );
 }
 
-function StaffForm({ member, initialRole, categories: initialCategories, defaultCategoryId, onClose, onSaved }: {
+function StaffForm({ member, categories: initialCategories, defaultCategoryId, onClose, onSaved }: {
   member: StaffMember | null;
-  initialRole?: StaffRole;
   categories: StaffCategory[];
   defaultCategoryId: number | null;
   onClose: () => void;
@@ -312,21 +296,15 @@ function StaffForm({ member, initialRole, categories: initialCategories, default
     name: member?.name ?? '',
     categoryId: member
       ? (member.categoryId == null ? '' : String(member.categoryId))
-      : String(defaultCategoryId ?? defaultCategoryFor(initialRole, initialCategories) ?? ''),
-    role: (member?.role ?? initialRole ?? 'cashier') as StaffRole,
+      : String(defaultCategoryId ?? ''),
     position: member?.position ?? '',
     phone: member?.phone ?? '',
-    username: member?.username ?? '',
-    password: '',
     baseSalary: member ? String(member.baseSalary) : '',
     overtimeRate: member ? String(member.overtimeRate) : '',
     joinedAt: member ? toDateInput(new Date(member.joinedAt)) : toDateInput(new Date()),
   });
   const [saving, setSaving] = useState(false);
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
-  const canLogin = form.role !== 'staff';
-  const needsPassword = canLogin && !member?.canLogin;
-  const isSelf = member?.id === getAuthUser()?.id;
 
   async function addCategory() {
     const name = (newCategory ?? '').trim();
@@ -350,11 +328,8 @@ function StaffForm({ member, initialRole, categories: initialCategories, default
     const data = {
       name: form.name,
       categoryId: form.categoryId ? Number(form.categoryId) : null,
-      role: form.role,
       position: form.position,
       phone: form.phone,
-      username: canLogin ? form.username : null,
-      ...(form.password && { password: form.password }),
       baseSalary: Number(form.baseSalary) || 0,
       overtimeRate: Number(form.overtimeRate) || 0,
       joinedAt: new Date(y, m - 1, d, 12).toISOString(),
@@ -373,7 +348,7 @@ function StaffForm({ member, initialRole, categories: initialCategories, default
 
   return (
     <Modal
-      title={member ? `Edit ${member.name}` : initialRole === 'cashier' ? 'New cashier account' : initialRole === 'chef' ? 'New kitchen account' : 'Add staff member'}
+      title={member ? `Edit ${member.name}` : 'Add staff member'}
       onClose={onClose}
       wide
       footer={<>
@@ -382,19 +357,19 @@ function StaffForm({ member, initialRole, categories: initialCategories, default
       </>}
     >
       <form id="staff-form" onSubmit={submit}>
-        <div className="grid-3">
-          <label className="field"><span className="field-label">Full name</span><input className="input" value={form.name} onChange={set('name')} required autoFocus /></label>
-          <label className="field"><span className="field-label">Job title</span><input className="input" value={form.position} onChange={set('position')} placeholder="e.g. Head chef, Waiter" /></label>
-          <label className="field"><span className="field-label">Phone</span><input className="input" type="tel" value={form.phone} onChange={set('phone')} /></label>
+        <div className="grid-2">
+          <label className="field"><span className="field-label">Full name</span><input className="input" data-icon="user" value={form.name} placeholder="Full name" onChange={set('name')} required autoFocus /></label>
+          <label className="field"><span className="field-label">Job title</span><input className="input" data-icon="briefcase" value={form.position} onChange={set('position')} placeholder="Waiter" /></label>
         </div>
 
         <div className="grid-2">
+          <label className="field"><span className="field-label">Phone</span><input className="input" data-icon="phone" type="tel" value={form.phone} placeholder="98XXXXXXXX" onChange={set('phone')} /></label>
           <div className="field">
             <label className="field-label" htmlFor="staff-category">Category</label>
             {newCategory === null ? (
               <select
                 id="staff-category"
-                className="input"
+                className="input" data-icon="tag"
                 value={form.categoryId}
                 onChange={(e) => (e.target.value === '__new' ? setNewCategory('') : setForm({ ...form, categoryId: e.target.value }))}
               >
@@ -406,11 +381,11 @@ function StaffForm({ member, initialRole, categories: initialCategories, default
               <div className="row" style={{ gap: 'var(--space-2)' }}>
                 <input
                   id="staff-category"
-                  className="input"
+                  className="input" data-icon="tag"
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCategory(); } }}
-                  placeholder="e.g. Delivery, Security"
+                  placeholder="Category name"
                   maxLength={40}
                   autoFocus
                 />
@@ -419,32 +394,13 @@ function StaffForm({ member, initialRole, categories: initialCategories, default
               </div>
             )}
           </div>
-          <label className="field">
-            <span className="field-label">Role &amp; access</span>
-            <select className="input" value={form.role} onChange={set('role')} disabled={isSelf}>
-              {(Object.keys(ROLE_LABEL) as StaffRole[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-            </select>
-            <span className="field-hint">{isSelf ? 'You cannot change your own role.' : ROLE_HINT[form.role]}</span>
-          </label>
         </div>
 
-        {canLogin && (
-          <div className="grid-2">
-            <label className="field">
-              <span className="field-label">Username</span>
-              <input className="input" value={form.username} onChange={set('username')} required autoComplete="off" pattern="[A-Za-z0-9._\-]{3,32}" title="3–32 letters, numbers, dot, dash or underscore" />
-            </label>
-            <label className="field">
-              <span className="field-label">{needsPassword ? 'Password' : 'New password'}</span>
-              <PasswordInput value={form.password} onChange={set('password')} required={needsPassword} minLength={6} autoComplete="new-password" placeholder={needsPassword ? 'At least 6 characters' : 'Leave blank to keep current'} />
-            </label>
-          </div>
-        )}
 
         <div className="grid-3">
-          <label className="field"><span className="field-label">Monthly base salary</span><input className="input" type="number" step="any" min="0" value={form.baseSalary} onChange={set('baseSalary')} /></label>
-          <label className="field"><span className="field-label">Overtime rate / hour</span><input className="input" type="number" step="any" min="0" value={form.overtimeRate} onChange={set('overtimeRate')} /></label>
-          <label className="field"><span className="field-label">Joined on</span><input className="input" type="date" value={form.joinedAt} onChange={set('joinedAt')} required /></label>
+          <label className="field"><span className="field-label">Monthly base salary</span><input className="input" data-icon="money" type="number" step="any" min="0" value={form.baseSalary} placeholder="0" onChange={set('baseSalary')} /></label>
+          <label className="field"><span className="field-label">Overtime rate / hour</span><input className="input" data-icon="money" type="number" step="any" min="0" value={form.overtimeRate} placeholder="0" onChange={set('overtimeRate')} /></label>
+          <label className="field"><span className="field-label">Joined on</span><input className="input" data-icon="calendar" type="date" value={form.joinedAt} onChange={set('joinedAt')} required /></label>
         </div>
       </form>
     </Modal>
@@ -454,13 +410,17 @@ function StaffForm({ member, initialRole, categories: initialCategories, default
 function PayForm({ member, period: initialPeriod, onClose, onSaved }: { member: StaffMember; period: string; onClose: () => void; onSaved: () => void }) {
   const { money } = useRestaurant();
   const toast = useToast();
+  const [type, setType] = useState<'salary' | 'advance'>('salary');
+  // Advances already taken this month come off the salary
+  const advanceTaken = initialPeriod === member.period ? member.advancesThisPeriod : 0;
   const [form, setForm] = useState({
     period: initialPeriod,
     baseAmount: String(member.baseSalary),
     bonus: '',
     overtimeHours: '',
     overtimeRate: String(member.overtimeRate),
-    deductions: '',
+    deductions: advanceTaken ? String(advanceTaken) : '',
+    amount: '',
     method: 'cash' as PayrollMethod,
     paidAt: toDateInput(new Date()),
     note: '',
@@ -471,16 +431,26 @@ function PayForm({ member, period: initialPeriod, onClose, onSaved }: { member: 
   const n = (v: string) => Number(v) || 0;
   const overtime = round2(n(form.overtimeHours) * n(form.overtimeRate));
   const gross = round2(n(form.baseAmount) + n(form.bonus) + overtime);
-  const net = round2(gross - n(form.deductions));
-  const alreadyPaid = form.period === member.period && member.paymentsThisPeriod > 0;
+  const isAdvance = type === 'advance';
+  const net = isAdvance ? round2(n(form.amount)) : round2(gross - n(form.deductions));
+  const alreadyPaid = !isAdvance && form.period === member.period && member.paymentsThisPeriod > 0;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (isAdvance && !(net > 0)) return toast.error('Enter the advance amount');
     if (net < 0) return toast.error('Deductions cannot exceed the total pay');
     setSaving(true);
     const [y, m, d] = form.paidAt.split('-').map(Number);
     try {
-      await api.staff.pay(member.id, {
+      await api.staff.pay(member.id, isAdvance ? {
+        type: 'advance',
+        period: form.period,
+        amount: net,
+        method: form.method,
+        paidAt: new Date(y, m - 1, d, 12).toISOString(),
+        note: form.note,
+      } : {
+        type: 'salary',
         period: form.period,
         baseAmount: n(form.baseAmount),
         bonus: n(form.bonus),
@@ -491,7 +461,7 @@ function PayForm({ member, period: initialPeriod, onClose, onSaved }: { member: 
         paidAt: new Date(y, m - 1, d, 12).toISOString(),
         note: form.note,
       });
-      toast.success(`Paid ${member.name} ${money(net)}`);
+      toast.success(`${isAdvance ? 'Advance' : 'Paid'} ${member.name} ${money(net)}`);
       onSaved();
     } catch (err) {
       toast.error((err as Error).message);
@@ -506,36 +476,50 @@ function PayForm({ member, period: initialPeriod, onClose, onSaved }: { member: 
       onClose={onClose}
       wide
       footer={<>
-        <span className="spacer price">Net pay {money(net)}</span>
+        <span className="spacer price">{isAdvance ? 'Advance' : 'Net pay'} {money(net)}</span>
         <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
         <button className="btn btn-primary" type="submit" form="pay-form" disabled={saving}>{saving ? 'Saving…' : 'Record payment'}</button>
       </>}
     >
       <form id="pay-form" onSubmit={submit}>
+        <div className="segmented" role="tablist" style={{ width: '100%', marginBottom: 'var(--space-4)' }}>
+          {([['salary', 'Salary'], ['advance', 'Advance']] as const).map(([k, label]) => (
+            <button key={k} type="button" role="tab" aria-selected={type === k} className="segmented-item" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setType(k)}>{label}</button>
+          ))}
+        </div>
         {alreadyPaid && (
           <p className="alert alert-warning">
             {member.name} already has {member.paymentsThisPeriod} payment{member.paymentsThisPeriod === 1 ? '' : 's'} ({money(member.paidThisPeriod)}) for {monthLabel(form.period)}.
           </p>
         )}
         <div className="grid-3">
-          <label className="field"><span className="field-label">For month</span><input className="input" type="month" value={form.period} onChange={set('period')} required /></label>
-          <label className="field"><span className="field-label">Paid on</span><input className="input" type="date" value={form.paidAt} onChange={set('paidAt')} required /></label>
+          <label className="field"><span className="field-label">For month</span><input className="input" data-icon="calendar" type="month" value={form.period} onChange={set('period')} required /></label>
+          <label className="field"><span className="field-label">Paid on</span><input className="input" data-icon="calendar" type="date" value={form.paidAt} onChange={set('paidAt')} required /></label>
           <label className="field">
             <span className="field-label">Method</span>
-            <select className="input" value={form.method} onChange={set('method')}>
+            <select className="input" data-icon="card" value={form.method} onChange={set('method')}>
               {(Object.keys(METHOD_LABEL) as PayrollMethod[]).map((k) => <option key={k} value={k}>{METHOD_LABEL[k]}</option>)}
             </select>
           </label>
         </div>
+        {isAdvance ? (
+          <div className="grid-2">
+            <label className="field"><span className="field-label">Advance amount</span><input className="input" data-icon="money" type="number" step="any" min="0" value={form.amount} placeholder="0" onChange={set('amount')} required autoFocus /></label>
+            <label className="field"><span className="field-label">Note</span><input className="input" data-icon="note" value={form.note} onChange={set('note')} placeholder="Optional" /></label>
+          </div>
+        ) : (<>
+        {advanceTaken > 0 && (
+          <p className="alert alert-warning">Advance taken in {monthLabel(member.period)}: {money(advanceTaken)} (added to deductions).</p>
+        )}
         <div className="grid-3">
-          <label className="field"><span className="field-label">Base salary</span><input className="input" type="number" step="any" min="0" value={form.baseAmount} onChange={set('baseAmount')} /></label>
-          <label className="field"><span className="field-label">Bonus</span><input className="input" type="number" step="any" min="0" value={form.bonus} onChange={set('bonus')} placeholder="0" /></label>
-          <label className="field"><span className="field-label">Deductions</span><input className="input" type="number" step="any" min="0" value={form.deductions} onChange={set('deductions')} placeholder="Advances, absences…" /></label>
+          <label className="field"><span className="field-label">Base salary</span><input className="input" data-icon="money" type="number" step="any" min="0" value={form.baseAmount} placeholder="0" onChange={set('baseAmount')} /></label>
+          <label className="field"><span className="field-label">Bonus</span><input className="input" data-icon="money" type="number" step="any" min="0" value={form.bonus} onChange={set('bonus')} placeholder="0" /></label>
+          <label className="field"><span className="field-label">Deductions</span><input className="input" data-icon="money" type="number" step="any" min="0" value={form.deductions} onChange={set('deductions')} placeholder="Advances, absences…" /></label>
         </div>
         <div className="grid-3">
-          <label className="field"><span className="field-label">Overtime hours</span><input className="input" type="number" step="any" min="0" value={form.overtimeHours} onChange={set('overtimeHours')} placeholder="0" /></label>
-          <label className="field"><span className="field-label">Overtime rate / hour</span><input className="input" type="number" step="any" min="0" value={form.overtimeRate} onChange={set('overtimeRate')} /></label>
-          <label className="field"><span className="field-label">Note</span><input className="input" value={form.note} onChange={set('note')} placeholder="Optional" /></label>
+          <label className="field"><span className="field-label">Overtime hours</span><input className="input" data-icon="clock" type="number" step="any" min="0" value={form.overtimeHours} onChange={set('overtimeHours')} placeholder="0" /></label>
+          <label className="field"><span className="field-label">Overtime rate / hour</span><input className="input" data-icon="money" type="number" step="any" min="0" value={form.overtimeRate} placeholder="0" onChange={set('overtimeRate')} /></label>
+          <label className="field"><span className="field-label">Note</span><input className="input" data-icon="note" value={form.note} onChange={set('note')} placeholder="Optional" /></label>
         </div>
         <ul className="line-items">
           <li><span>Base + bonus</span><span>{money(round2(n(form.baseAmount) + n(form.bonus)))}</span></li>
@@ -543,6 +527,7 @@ function PayForm({ member, period: initialPeriod, onClose, onSaved }: { member: 
           <li><span>Deductions</span><span className="danger-text">−{money(n(form.deductions))}</span></li>
           <li><strong>Net pay</strong><strong className={net < 0 ? 'danger-text' : undefined}>{money(net)}</strong></li>
         </ul>
+        </>)}
       </form>
     </Modal>
   );
@@ -659,8 +644,8 @@ function CategoryManager({ categories, onClose, onChanged }: {
   return (
     <Modal title="Staff categories" wide onClose={onClose} footer={<button className="btn btn-secondary" onClick={onClose}>Done</button>}>
       <form className="category-add" onSubmit={add}>
-        <input className="input" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="New category, e.g. Delivery" maxLength={40} required aria-label="Category name" />
-        <input className="input" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} placeholder="Description (optional)" maxLength={120} aria-label="Description" />
+        <input className="input" data-icon="tag" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="New category name" maxLength={40} required aria-label="Category name" />
+        <input className="input" data-icon="note" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} placeholder="Description (optional)" maxLength={120} aria-label="Description" />
         <ColorPicker value={draft.color} onChange={(color) => setDraft({ ...draft, color })} />
         <button className="btn btn-primary" disabled={busy || !draft.name.trim()}><Icon name="plus" size={16} /> Add</button>
       </form>
@@ -673,8 +658,8 @@ function CategoryManager({ categories, onClose, onChanged }: {
             <li key={c.id}>
               {editingId === c.id ? (
                 <div className="category-add" style={{ margin: 0, flex: 1 }}>
-                  <input className="input" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} maxLength={40} aria-label="Category name" autoFocus />
-                  <input className="input" value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} placeholder="Description" maxLength={120} aria-label="Description" />
+                  <input className="input" data-icon="tag" value={edit.name} placeholder="Category name" onChange={(e) => setEdit({ ...edit, name: e.target.value })} maxLength={40} aria-label="Category name" autoFocus />
+                  <input className="input" data-icon="note" value={edit.description} onChange={(e) => setEdit({ ...edit, description: e.target.value })} placeholder="Description" maxLength={120} aria-label="Description" />
                   <ColorPicker value={edit.color} onChange={(color) => setEdit({ ...edit, color })} />
                   <div className="row" style={{ gap: 'var(--space-1)' }}>
                     <button className="btn btn-primary btn-sm" onClick={() => save(c)} disabled={busy || !edit.name.trim()}>Save</button>
@@ -715,7 +700,7 @@ function CategoryManager({ categories, onClose, onChanged }: {
           {removing.activeStaff > 0 ? (
             <label className="field" style={{ marginBottom: 0 }}>
               <span className="field-label">Move its {removing.activeStaff} staff member{removing.activeStaff === 1 ? '' : 's'} to</span>
-              <select className="input" value={moveTo} onChange={(e) => setMoveTo(e.target.value)}>
+              <select className="input" data-icon="tag" value={moveTo} onChange={(e) => setMoveTo(e.target.value)}>
                 <option value="none">— Uncategorised —</option>
                 {list.filter((c) => c.id !== removing.id).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>

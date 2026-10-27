@@ -3,6 +3,7 @@
 // while menu items sell loose units — a recipe of 1 pcs sells one cigarette, 20 pcs a whole pack.
 const { HttpError } = require('./http');
 const events = require('./events');
+// Developed by Unique Adhikari
 
 const round3 = (n) => Math.round(n * 1000) / 1000;
 const isLow = (item) => item.quantity <= item.reorderLevel;

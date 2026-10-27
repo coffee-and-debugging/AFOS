@@ -2,6 +2,10 @@
 const express = require('express');
 const prisma = require('../prisma');
 const { HttpError, asyncHandler } = require('../lib/http');
+const { SYSTEM_ACCOUNT_IDS } = require('../middleware/auth');
+
+// Headcounts cover employees only, not the built-in sign-in accounts
+const employees = { id: { notIn: SYSTEM_ACCOUNT_IDS } };
 
 const router = express.Router();
 
@@ -37,7 +41,7 @@ const parseId = (value) => {
 router.get('/', asyncHandler(async (req, res) => {
   const [categories, totals] = await Promise.all([
     prisma.staffCategory.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }),
-    prisma.user.groupBy({ by: ['categoryId'], where: { active: true }, _count: true, _sum: { baseSalary: true } }),
+    prisma.user.groupBy({ by: ['categoryId'], where: { active: true, ...employees }, _count: true, _sum: { baseSalary: true } }),
   ]);
   res.json(categories.map((c) => {
     const t = totals.find((x) => x.categoryId === c.id);
@@ -75,7 +79,7 @@ router.put('/', asyncHandler(async (req, res) => {
  */
 router.delete('/:id', asyncHandler(async (req, res) => {
   const id = parseId(req.params.id);
-  const members = await prisma.user.count({ where: { categoryId: id } });
+  const members = await prisma.user.count({ where: { categoryId: id, ...employees } });
   const { moveTo } = req.query;
   if (members && moveTo === undefined) {
     throw new HttpError(409, `${members} staff member${members === 1 ? ' is' : 's are'} in this category. Choose where to move them.`);

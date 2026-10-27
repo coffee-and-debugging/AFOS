@@ -141,9 +141,7 @@ function ItemForm({ item, onClose, onSaved, onConvert }: {
   const toast = useToast();
   const [form, setForm] = useState({
     name: item?.name ?? '',
-    unit: item?.unit ?? 'kg',
-    packUnit: item?.packUnit ?? '',
-    unitsPerPack: item?.unitsPerPack ? String(item.unitsPerPack) : '',
+    unit: item?.unit ?? '',
     quantity: '',
     reorderLevel: item ? String(item.reorderLevel) : '',
     costPerUnit: item ? String(item.costPerUnit) : '',
@@ -154,12 +152,12 @@ function ItemForm({ item, onClose, onSaved, onConvert }: {
   async function submit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const hasPack = form.packUnit.trim() !== '';
     const data = {
       name: form.name,
       unit: form.unit,
-      packUnit: hasPack ? form.packUnit.trim() : null,
-      unitsPerPack: hasPack ? Number(form.unitsPerPack) || null : null,
+      // No pack fields in the form; an existing pack size (e.g. from Convert) is kept as is
+      packUnit: item?.packUnit ?? null,
+      unitsPerPack: item?.unitsPerPack ?? null,
       reorderLevel: Number(form.reorderLevel) || 0,
       costPerUnit: Number(form.costPerUnit) || 0,
     };
@@ -186,28 +184,16 @@ function ItemForm({ item, onClose, onSaved, onConvert }: {
     >
       <form id="stock-form" onSubmit={submit}>
         <div className="grid-2">
-          <label className="field"><span className="field-label">Name</span><input className="input" value={form.name} onChange={set('name')} required autoFocus /></label>
+          <label className="field"><span className="field-label">Name</span><input className="input" data-icon="box" value={form.name} placeholder="Item name" onChange={set('name')} required autoFocus /></label>
           <label className="field">
             <span className="field-label">Unit</span>
-            <input className="input" list="units" value={form.unit} onChange={set('unit')} required />
-            <datalist id="units"><option value="kg" /><option value="g" /><option value="L" /><option value="ml" /><option value="pcs" /><option value="pack" /></datalist>
-          </label>
-        </div>
-        <div className="grid-2">
-          <label className="field">
-            <span className="field-label">Pack name (optional)</span>
-            <input className="input" list="pack-units" value={form.packUnit} onChange={set('packUnit')} placeholder="e.g. pack, box" />
-            <datalist id="pack-units"><option value="pack" /><option value="box" /><option value="carton" /><option value="crate" /></datalist>
-          </label>
-          <label className="field">
-            <span className="field-label">{form.unit || 'Units'} per {form.packUnit || 'pack'}</span>
-            <input className="input" type="number" step="any" min="0" value={form.unitsPerPack} onChange={set('unitsPerPack')} disabled={!form.packUnit.trim()} required={!!form.packUnit.trim()} placeholder="e.g. 20" />
+            <input className="input" data-icon="ruler" value={form.unit} onChange={set('unit')} placeholder="pcs, kg, bottle" required />
           </label>
         </div>
         <div className={item ? 'grid-2' : 'grid-3'}>
-          {!item && <label className="field"><span className="field-label">Opening qty ({form.unit})</span><input className="input" type="number" step="any" min="0" value={form.quantity} onChange={set('quantity')} /></label>}
-          <label className="field"><span className="field-label">Reorder level ({form.unit})</span><input className="input" type="number" step="any" min="0" value={form.reorderLevel} onChange={set('reorderLevel')} /></label>
-          <label className="field"><span className="field-label">Cost per {form.unit || 'unit'}</span><input className="input" type="number" step="any" min="0" value={form.costPerUnit} onChange={set('costPerUnit')} /></label>
+          {!item && <label className="field"><span className="field-label">Opening qty ({form.unit})</span><input className="input" data-icon="hash" type="number" step="any" min="0" value={form.quantity} placeholder="0" onChange={set('quantity')} /></label>}
+          <label className="field"><span className="field-label">Reorder level ({form.unit})</span><input className="input" data-icon="bell" type="number" step="any" min="0" value={form.reorderLevel} placeholder="10" onChange={set('reorderLevel')} /></label>
+          <label className="field"><span className="field-label">Cost per {form.unit || 'unit'}</span><input className="input" data-icon="money" type="number" step="any" min="0" value={form.costPerUnit} placeholder="0" onChange={set('costPerUnit')} /></label>
         </div>
         {item && (
           <p className="field-hint">
@@ -266,9 +252,9 @@ function AdjustForm({ item, onClose, onSaved }: { item: StockItem; onClose: () =
         <label className="field">
           <span className="field-label">Quantity ({inPacks ? item.packUnit : item.unit})</span>
           <div className="row" style={{ gap: 'var(--space-2)' }}>
-            <input className="input" type="number" step="any" min="0" value={qty} onChange={(e) => setQty(e.target.value)} required autoFocus />
+            <input className="input" data-icon="hash" type="number" step="any" min="0" value={qty} placeholder="0" onChange={(e) => setQty(e.target.value)} required autoFocus />
             {item.packUnit && item.unitsPerPack && (
-              <select className="input" style={{ width: 'auto' }} value={inPacks ? 'pack' : 'unit'} onChange={(e) => setInPacks(e.target.value === 'pack')} aria-label="Counted in">
+              <select className="input" data-icon="ruler" style={{ width: 'auto' }} value={inPacks ? 'pack' : 'unit'} onChange={(e) => setInPacks(e.target.value === 'pack')} aria-label="Counted in">
                 <option value="unit">{item.unit}</option>
                 <option value="pack">{item.packUnit} ({item.unitsPerPack})</option>
               </select>
@@ -278,7 +264,7 @@ function AdjustForm({ item, onClose, onSaved }: { item: StockItem; onClose: () =
         </label>
         <label className="field" style={{ marginBottom: 0 }}>
           <span className="field-label">Note</span>
-          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder={mode === 'wastage' ? 'e.g. spoiled, dropped' : 'e.g. count correction'} />
+          <input className="input" data-icon="note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={mode === 'wastage' ? 'Spoiled, dropped…' : 'Reason'} />
         </label>
       </form>
     </Modal>
@@ -351,10 +337,10 @@ function ConvertForm({ item, onClose, onSaved }: { item: StockItem; onClose: () 
     >
       <form id="convert-form" onSubmit={submit}>
         <div className="grid-2">
-          <label className="field"><span className="field-label">New base unit</span><input className="input" value={unit} onChange={(e) => setUnit(e.target.value)} required autoFocus /></label>
+          <label className="field"><span className="field-label">New base unit</span><input className="input" data-icon="ruler" value={unit} placeholder="pcs" onChange={(e) => setUnit(e.target.value)} required autoFocus /></label>
           <label className="field">
             <span className="field-label">{newUnit || 'Units'} in one {item.unit}</span>
-            <input className="input" type="number" step="any" min="0" value={factor} onChange={(e) => setFactor(e.target.value)} placeholder="e.g. 20" required />
+            <input className="input" data-icon="hash" type="number" step="any" min="0" value={factor} onChange={(e) => setFactor(e.target.value)} placeholder="20" required />
           </label>
         </div>
         {valid && (

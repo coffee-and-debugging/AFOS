@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import Icon, { type IconName } from './Icon';
 import LiveAlerts from './LiveAlerts';
+import StaffChat from './StaffChat';
 import { OfflineBanner } from './States';
 import { clearAuth, getAuthUser } from '../api/client';
 import { liveEvents } from '../api/events';
@@ -109,6 +110,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             </nav>
           )}
           <div className="topbar-right">
+            <StaffChat />
             {(role === 'admin' || role === 'cashier') && <LiveAlerts />}
             <span className={`conn-chip${connectivity === 'offline' ? ' is-offline' : ''}`}>
               {connectivity === 'online' ? 'Online' : 'Reconnecting'}

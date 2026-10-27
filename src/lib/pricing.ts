@@ -1,4 +1,5 @@
 import type { OrderType, Restaurant } from '../types';
+// Developed by Unique Adhikari
 
 const round = (n: number) => Math.round(n * 100) / 100;
 

@@ -220,7 +220,10 @@ export interface StaffMember {
   canLogin: boolean;
   period: string;
   paidThisPeriod: number;
+  /** Salary payouts this period (advances not counted) */
   paymentsThisPeriod: number;
+  /** Advances taken this period */
+  advancesThisPeriod: number;
   lastPayment: { paidAt: string; period: string; netAmount: number } | null;
 }
 
@@ -228,6 +231,8 @@ export type PayrollMethod = 'cash' | 'bank' | 'esewa' | 'khalti';
 
 export interface StaffPayment {
   id: string;
+  /** salary payout, or an advance taken before payday (amount in netAmount) */
+  type: 'salary' | 'advance';
   userId: string;
   user?: { id: string; name: string; role: StaffRole; position: string; category: CategoryRef | null };
   period: string;
@@ -256,11 +261,25 @@ export interface LowStockAlert {
   outOfStock: boolean;
 }
 
+/** Staff chat message between two roles */
+export interface ChatMessage {
+  id: string;
+  fromRole: Role;
+  toRole: Role;
+  fromName: string;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
 /** Real-time events from GET /api/events */
 export interface LiveEvents {
   'order.created': Order;
   'order.updated': Order;
   'stock.low': { items: LowStockAlert[]; at: string; source: Record<string, unknown> };
+  'chat.message': ChatMessage;
+  /** `role` read everything `with` sent it */
+  'chat.read': { role: Role; with: Role };
 }
 
 export interface AuthUser {

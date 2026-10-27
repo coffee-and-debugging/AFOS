@@ -24,35 +24,65 @@ router.get('/', asyncHandler(async (req, res) => {
   }));
 }));
 
+const sameText = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+
+/**
+ * Resolves one purchase line to an inventory item. Lines name the item and unit as free text
+ * (`name`, `unit`); an unknown name creates a new inventory item in that unit. The unit must be the
+ * item's base unit or its pack unit. Older clients may still send `stockItemId` + `inPacks`.
+ */
+async function resolveLine(tx, i) {
+  const entered = Number(i.quantity);
+  const enteredCost = Number(i.unitCost);
+  if (!(entered > 0)) throw new HttpError(400, 'Quantities must be greater than zero');
+  if (!(enteredCost >= 0)) throw new HttpError(400, 'Unit cost cannot be negative');
+
+  let stockItem;
+  let inPacks = Boolean(i.inPacks);
+  if (i.stockItemId !== undefined && i.stockItemId !== null && i.stockItemId !== '') {
+    stockItem = await tx.stockItem.findUnique({ where: { id: Number(i.stockItemId) } });
+    if (!stockItem) throw new HttpError(400, 'One of the inventory items no longer exists');
+  } else {
+    const name = String(i.name || '').trim();
+    const unit = String(i.unit || '').trim();
+    if (!name) throw new HttpError(400, 'Enter an item name for every line');
+    if (!unit) throw new HttpError(400, `Enter a unit for ${name}`);
+    stockItem = await tx.stockItem.findFirst({ where: { name: { equals: name, mode: 'insensitive' } } });
+    if (!stockItem) stockItem = await tx.stockItem.create({ data: { name, unit } });
+    if (sameText(unit, stockItem.unit)) inPacks = false;
+    else if (stockItem.packUnit && sameText(unit, stockItem.packUnit)) inPacks = true;
+    else throw new HttpError(400, `${stockItem.name} is counted in ${stockItem.unit}${stockItem.packUnit ? ` or ${stockItem.packUnit}` : ''}`);
+  }
+  const subtotal = round(entered * enteredCost);
+  const quantity = toBaseUnits(stockItem, entered, inPacks);
+  return { stockItemId: stockItem.id, quantity, unitCost: quantity ? subtotal / quantity : 0, subtotal };
+}
+
+/** Supplier picked from the list (`supplierId`) or typed (`supplierName`, created if new). */
+async function resolveSupplier(tx, supplierId, supplierName) {
+  if (supplierId) return supplierId;
+  const name = String(supplierName || '').trim();
+  if (!name) return null;
+  const existing = await tx.supplier.findFirst({ where: { name: { equals: name, mode: 'insensitive' } } });
+  return (existing ?? await tx.supplier.create({ data: { name } })).id;
+}
+
 // Recording a purchase adds the goods to stock and updates each item's latest cost.
-// A line with `inPacks: true` gives quantity and unit cost per pack; it is stored in base units
+// A line bought by the pack gives quantity and unit cost per pack; it is stored in base units
 // (2 packs × Rs. 400 of a 20-pcs pack → 40 pcs × Rs. 20) so loose-unit sales deduct correctly.
 router.post('/', asyncHandler(async (req, res) => {
-  const { supplierId, invoiceNo, date, notes, paymentStatus = 'paid', items } = req.body || {};
+  const { supplierId, supplierName, invoiceNo, date, notes, paymentStatus = 'paid', items } = req.body || {};
   if (!Array.isArray(items) || items.length === 0) throw new HttpError(400, 'Add at least one item');
   if (!['paid', 'unpaid'].includes(paymentStatus)) throw new HttpError(400, 'Payment status must be paid or unpaid');
-
-  const stockItems = await prisma.stockItem.findMany({ where: { id: { in: items.map((i) => Number(i.stockItemId)).filter(Number.isInteger) } } });
-  const lines = items.map((i) => {
-    const stockItemId = Number(i.stockItemId);
-    const entered = Number(i.quantity);
-    const enteredCost = Number(i.unitCost);
-    if (!Number.isInteger(stockItemId)) throw new HttpError(400, 'Choose an inventory item for every line');
-    if (!(entered > 0)) throw new HttpError(400, 'Quantities must be greater than zero');
-    if (!(enteredCost >= 0)) throw new HttpError(400, 'Unit cost cannot be negative');
-    const stockItem = stockItems.find((s) => s.id === stockItemId);
-    if (!stockItem) throw new HttpError(400, 'One of the inventory items no longer exists');
-    const subtotal = round(entered * enteredCost);
-    const quantity = toBaseUnits(stockItem, entered, Boolean(i.inPacks));
-    return { stockItemId, quantity, unitCost: quantity ? subtotal / quantity : 0, subtotal };
-  });
   const when = date ? new Date(date) : new Date();
   if (Number.isNaN(when.getTime())) throw new HttpError(400, 'Purchase date is not valid');
 
   const purchase = await prisma.$transaction(async (tx) => {
+    const lines = [];
+    for (const i of items) lines.push(await resolveLine(tx, i));
     const created = await tx.purchase.create({
       data: {
-        supplierId: supplierId || null,
+        supplierId: await resolveSupplier(tx, supplierId, supplierName),
         invoiceNo: String(invoiceNo || '').trim(),
         date: when,
         notes: String(notes || '').trim(),

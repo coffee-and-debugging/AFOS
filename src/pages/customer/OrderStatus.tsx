@@ -126,7 +126,7 @@ export default function OrderStatus() {
             </span>
           </div>
           {order.paymentStatus === 'paid' && (
-            <p className="alert alert-success" style={{ marginBottom: 0 }}>
+            <p className="alert alert-success" style={{  marginBottom: 0 }}>
               {money(order.totalAmount)} received via {order.paymentMethod ? PAYMENT_LABEL[order.paymentMethod] : 'counter'}. Thank you!
               {order.paymentRef && <><br /><span className="subtle">Transaction ref: {order.paymentRef}</span></>}
             </p>

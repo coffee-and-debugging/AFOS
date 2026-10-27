@@ -91,6 +91,11 @@ export const playOrderBell = () => play((c, t) => {
   strike(c, t + 0.22, 1318.5, 1.8, 0.35);
 });
 
+/** Short soft ping for a new staff chat message. */
+export const playChatPing = () => play((c, t) => {
+  strike(c, t, 1318.5, 0.5, 0.15);
+});
+
 /** Softer descending chime for stock warnings. */
 export const playAlertChime = () => play((c, t) => {
   strike(c, t, 784, 0.9, 0.22);
