@@ -191,8 +191,8 @@ function ItemForm({ item, onClose, onSaved, onConvert }: {
           </label>
         </div>
         <div className={item ? 'grid-2' : 'grid-3'}>
-          {!item && <label className="field"><span className="field-label">Opening qty ({form.unit})</span><input className="input" data-icon="hash" type="number" step="any" min="0" value={form.quantity} placeholder="0" onChange={set('quantity')} /></label>}
-          <label className="field"><span className="field-label">Reorder level ({form.unit})</span><input className="input" data-icon="bell" type="number" step="any" min="0" value={form.reorderLevel} placeholder="10" onChange={set('reorderLevel')} /></label>
+          {!item && <label className="field"><span className="field-label">Opening qty</span><input className="input" data-icon="hash" type="number" step="any" min="0" value={form.quantity} placeholder="0" onChange={set('quantity')} /></label>}
+          <label className="field"><span className="field-label">Reorder level </span><input className="input" data-icon="bell" type="number" step="any" min="0" value={form.reorderLevel} placeholder="10" onChange={set('reorderLevel')} /></label>
           <label className="field"><span className="field-label">Cost per {form.unit || 'unit'}</span><input className="input" data-icon="money" type="number" step="any" min="0" value={form.costPerUnit} placeholder="0" onChange={set('costPerUnit')} /></label>
         </div>
         {item && (
