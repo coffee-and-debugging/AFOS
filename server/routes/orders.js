@@ -95,10 +95,14 @@ router.put('/:id/status', requireAuth(ROLES.STAFF), asyncHandler(async (req, res
       if (existing.paymentStatus === 'paid') throw new HttpError(409, 'Paid orders cannot be cancelled');
       await applyRecipeStock(tx, existing.items, 1, 'cancel', existing.id);
     }
-    return tx.order.update({ where: { id: existing.id }, data: { status }, include: orderInclude });
+    const updated = await tx.order.update({ where: { id: existing.id }, data: { status }, include: orderInclude });
+    // Bills split off this order follow its kitchen status (they are already paid, so never cancelled)
+    if (status !== 'cancelled') await tx.order.updateMany({ where: { parentId: existing.id, status: { not: 'cancelled' } }, data: { status } });
+    const splits = await tx.order.findMany({ where: { parentId: existing.id }, include: orderInclude });
+    return { updated, splits };
   });
-  events.publish('order.updated', order);
-  res.json(order);
+  [order.updated, ...order.splits].forEach((o) => events.publish('order.updated', o));
+  res.json(order.updated);
 }));
 
 // Guest chooses "pay at the counter". Online payments go through /api/payments and are
@@ -198,6 +202,7 @@ router.post('/pay-items', requireAuth(ROLES.FRONT), asyncHandler(async (req, res
           type: order.type, source: order.source, tableId: order.tableId, tableNumber: order.tableNumber,
           customerId: order.customerId, customerNote: order.customerNote, status: order.status,
           createdAt: order.createdAt, subtotal: 0, totalAmount: 0,
+          parentId: order.parentId ?? order.id, // billing only: the kitchen keeps one ticket for the order
         },
       });
       for (const item of chosen) {

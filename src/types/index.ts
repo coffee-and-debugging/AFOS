@@ -76,6 +76,8 @@ export interface Order {
   source: 'qr' | 'pos';
   tableId: string | null;
   tableNumber: number | null;
+  /** Set on a bill split off to pay for chosen items; the kitchen shows it inside the parent's ticket */
+  parentId?: string | null;
   items: OrderItem[];
   customerNote: string;
   status: OrderStatus;

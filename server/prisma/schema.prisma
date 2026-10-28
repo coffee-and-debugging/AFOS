@@ -155,12 +155,17 @@ model Order {
   totalAmount   Float
   paidAt        DateTime?
   payments      PaymentAttempt[]
+  // Set on a bill split off for "pay for chosen items": billing only, the kitchen keeps the parent ticket
+  parentId      String?
+  parent        Order?      @relation("OrderSplits", fields: [parentId], references: [id], onDelete: SetNull)
+  splits        Order[]     @relation("OrderSplits")
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
   @@index([status])
   @@index([createdAt])
   @@index([customerId])
+  @@index([parentId])
 }
 
 // One online checkout started by a guest. The order is only marked paid after the

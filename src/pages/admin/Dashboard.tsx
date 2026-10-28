@@ -39,7 +39,7 @@ export default function Dashboard() {
   const t = today.totals;
   const occupied = tables.filter((x) => x.openOrders > 0).length;
   const openAmount = tables.reduce((s, x) => s + x.openAmount, 0);
-  const inKitchen = todaysOrders.filter((o) => o.status === 'pending' || o.status === 'cooking').length;
+  const inKitchen = todaysOrders.filter((o) => !o.parentId && (o.status === 'pending' || o.status === 'cooking')).length;
 
   return (
     <>

@@ -12,13 +12,29 @@ import type { Order, OrderStatus } from '../../types';
 const REFRESH_MS = 20_000;
 const REPEAT_BELL_MS = 20_000; // keep ringing until someone acknowledges the new ticket
 
+/** A kitchen ticket: the order plus items from bills split off it to pay for chosen dishes. */
+type Ticket = Order & { splitItems?: Order['items'] };
+
+/** Bills split off an order (billing only) go back into the parent's ticket, so the kitchen sees one order. */
+function mergeSplits(orders: Order[]): Ticket[] {
+  const byId = new Map(orders.map((o) => [o.id, { ...o } as Ticket]));
+  for (const o of orders) {
+    const parent = o.parentId ? byId.get(o.parentId) : undefined;
+    if (!parent) continue;
+    parent.splitItems = [...(parent.splitItems ?? []), ...o.items];
+    parent.items = [...parent.items, ...o.items];
+    byId.delete(o.id);
+  }
+  return orders.filter((o) => byId.has(o.id)).map((o) => byId.get(o.id)!);
+}
+
 // Tickets from the last two days; older unfinished orders are almost always stale.
 const loadKitchen = async () => {
   const from = new Date();
   from.setHours(0, 0, 0, 0);
   from.setDate(from.getDate() - 1);
   const orders = await api.orders.list({ from: from.toISOString(), limit: 1000 });
-  return orders.filter((o) => o.status !== 'cancelled');
+  return mergeSplits(orders.filter((o) => o.status !== 'cancelled'));
 };
 const FLOW: OrderStatus[] = ['pending', 'cooking', 'serving'];
 const NEXT: Partial<Record<OrderStatus, { status: OrderStatus; label: string }>> = {
@@ -69,15 +85,17 @@ export default function KitchenDisplay() {
   const { data: orders, error, loading, retry, reload, setData } = usePolling(load, REFRESH_MS);
 
   useLiveEvent('order.created', (order) => {
-    if (order.status === 'cancelled') return;
+    if (order.status === 'cancelled' || order.parentId) return;
     setData((prev) => (prev.some((o) => o.id === order.id) ? prev : [...prev, order]));
     announce([order]);
   });
   useLiveEvent('order.updated', (order) => {
+    if (order.parentId) return; // a split bill: its dishes already show on the parent ticket
     setData((prev) => {
       if (!prev.some((o) => o.id === order.id)) return prev;
       if (order.status === 'cancelled') return prev.filter((o) => o.id !== order.id);
-      return prev.map((o) => (o.id === order.id ? order : o));
+      // Keep dishes from split bills on the ticket; a fresh load re-merges them anyway
+      return prev.map((o) => (o.id === order.id ? { ...order, items: [...order.items, ...(o.splitItems ?? [])], splitItems: o.splitItems } : o));
     });
     // Another screen started it or it was cancelled, so stop alerting for it
     if (order.status !== 'pending') setIncoming((prev) => prev.filter((o) => o.id !== order.id));
