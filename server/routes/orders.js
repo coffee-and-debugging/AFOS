@@ -2,7 +2,7 @@ const express = require('express');
 const prisma = require('../prisma');
 const { requireAuth, ROLES } = require('../middleware/auth');
 const { HttpError, asyncHandler } = require('../lib/http');
-const { orderInclude, getSettings, computeTotals, splitDiscount, applyRecipeStock, createOrder } = require('../lib/orders');
+const { round, orderInclude, getSettings, computeTotals, splitDiscount, applyRecipeStock, createOrder } = require('../lib/orders');
 const { notifyLowStock } = require('../lib/stock');
 const events = require('../lib/events');
 
@@ -153,6 +153,95 @@ router.post('/pay-many', requireAuth(ROLES.FRONT), asyncHandler(async (req, res)
   });
   orders.forEach((o) => events.publish('order.updated', o));
   res.json(orders);
+}));
+
+// Pay for chosen items only (e.g. one guest at a table pays for their own dishes). Chosen items are
+// split off into their own bill, which is charged; the rest stays on the original, still unpaid.
+// Body: { lines: [{ orderItemId, quantity }], method, discount } — quantity may be part of a line.
+router.post('/pay-items', requireAuth(ROLES.FRONT), asyncHandler(async (req, res) => {
+  const { lines, method, discount } = req.body || {};
+  if (!STAFF_METHODS.includes(method)) throw new HttpError(400, 'Choose cash, card, eSewa or Khalti');
+  if (!Array.isArray(lines) || lines.length === 0) throw new HttpError(400, 'Choose the items to pay for');
+  const wanted = new Map();
+  for (const l of lines) {
+    const qty = Number(l?.quantity);
+    if (!Number.isInteger(qty) || qty < 1) throw new HttpError(400, 'Item quantities must be whole numbers');
+    wanted.set(String(l.orderItemId), (wanted.get(String(l.orderItemId)) || 0) + qty);
+  }
+
+  const { paid, touched } = await prisma.$transaction(async (tx) => {
+    const items = await tx.orderItem.findMany({ where: { id: { in: [...wanted.keys()] } }, include: { order: { include: { items: true } } } });
+    if (items.length !== wanted.size) throw new HttpError(404, 'One of the items is no longer on the bill');
+    const byOrder = new Map();
+    for (const item of items) {
+      const o = item.order;
+      const label = `Bill #${String(o.billNo).padStart(5, '0')}`;
+      if (o.paymentStatus === 'paid') throw new HttpError(400, `${label} is already paid`);
+      if (o.status === 'cancelled') throw new HttpError(409, `${label} was cancelled`);
+      if (wanted.get(item.id) > item.quantity) throw new HttpError(400, `Only ${item.quantity} × ${item.name} on ${label}`);
+      byOrder.set(o.id, [...(byOrder.get(o.id) || []), item]);
+    }
+
+    const settings = await getSettings(tx);
+    const targets = [];
+    const remaining = [];
+    for (const chosen of byOrder.values()) {
+      const order = chosen[0].order;
+      const everything = order.items.every((it) => (chosen.find((c) => c.id === it.id) ? wanted.get(it.id) === it.quantity : false));
+      if (everything) { targets.push(order.id); continue; }
+      if (await tx.paymentAttempt.count({ where: { orderId: order.id, status: 'initiated' } })) {
+        throw new HttpError(409, `Bill #${String(order.billNo).padStart(5, '0')} has an online payment in progress`);
+      }
+      // New bill for the chosen items, keeping the original's table, status and time
+      const split = await tx.order.create({
+        data: {
+          type: order.type, source: order.source, tableId: order.tableId, tableNumber: order.tableNumber,
+          customerId: order.customerId, customerNote: order.customerNote, status: order.status,
+          createdAt: order.createdAt, subtotal: 0, totalAmount: 0,
+        },
+      });
+      for (const item of chosen) {
+        const qty = wanted.get(item.id);
+        if (qty === item.quantity) {
+          await tx.orderItem.update({ where: { id: item.id }, data: { orderId: split.id } });
+        } else {
+          await tx.orderItem.update({ where: { id: item.id }, data: { quantity: item.quantity - qty, subtotal: round(item.price * (item.quantity - qty)) } });
+          await tx.orderItem.create({
+            data: {
+              orderId: split.id, menuItemId: item.menuItemId, name: item.name, category: item.category,
+              price: item.price, quantity: qty, subtotal: round(item.price * qty), portion: item.portion,
+            },
+          });
+        }
+      }
+      targets.push(split.id);
+      remaining.push(order);
+    }
+
+    // What is left on each original bill is re-totalled, keeping its discount (capped to the new subtotal)
+    for (const order of remaining) {
+      const left = await tx.orderItem.findMany({ where: { orderId: order.id } });
+      const subtotal = round(left.reduce((s, it) => s + it.subtotal, 0));
+      await tx.order.update({ where: { id: order.id }, data: computeTotals(subtotal, order.discount, order.type, settings) });
+    }
+
+    const toPay = await tx.order.findMany({ where: { id: { in: targets } }, include: { items: true }, orderBy: { createdAt: 'asc' } });
+    const subtotals = toPay.map((o) => round(o.items.reduce((s, it) => s + it.subtotal, 0)));
+    const shares = splitDiscount(subtotals, discount);
+    const paidAt = new Date();
+    const paidOrders = [];
+    for (const [i, o] of toPay.entries()) {
+      paidOrders.push(await tx.order.update({
+        where: { id: o.id },
+        data: { ...computeTotals(subtotals[i], shares[i], o.type, settings), paymentStatus: 'paid', paymentMethod: method, paidAt },
+        include: orderInclude,
+      }));
+    }
+    const left = await tx.order.findMany({ where: { id: { in: remaining.map((o) => o.id) } }, include: orderInclude });
+    return { paid: paidOrders, touched: left };
+  });
+  [...paid, ...touched].forEach((o) => events.publish('order.updated', o));
+  res.json(paid);
 }));
 
 router.post('/:id/pay', requireAuth(ROLES.FRONT), asyncHandler(async (req, res) => {

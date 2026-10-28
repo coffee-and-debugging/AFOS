@@ -178,6 +178,9 @@ export const api = {
     getAll: () => request<Category[]>('/categories'),
     create: (name: string) => request<Category>('/categories', json('POST', { name })),
     delete: (slug: string) => request<{ success: boolean }>(`/categories/${encodeURIComponent(slug)}`, json('DELETE')),
+    rename: (slug: string, name: string) => request<Category>(`/categories/${encodeURIComponent(slug)}`, json('PUT', { name })),
+    /** Every slug, in the new display order */
+    reorder: (slugs: string[]) => request<{ success: boolean }>('/categories', json('PUT', slugs)),
   },
 
   menu: {
@@ -229,6 +232,9 @@ export const api = {
     /** Settle several orders together (e.g. a whole table); the discount is split by subtotal */
     payMany: (ids: string[], method: StaffPaymentMethod, discount?: number) =>
       request<Order[]>('/orders/pay-many', json('POST', { ids, method, discount })),
+    /** Pay for chosen items only; they move to their own paid bill and the rest stays unpaid */
+    payItems: (lines: { orderItemId: string; quantity: number }[], method: StaffPaymentMethod, discount?: number) =>
+      request<Order[]>('/orders/pay-items', json('POST', { lines, method, discount })),
   },
 
   chat: {

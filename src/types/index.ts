@@ -50,6 +50,7 @@ export interface Table {
 }
 
 export interface OrderItem {
+  id?: string;
   menuItemId: string;
   name: string;
   category: string;

@@ -30,6 +30,7 @@ export default function MenuManagement() {
   const [editing, setEditing] = useState<MenuItem | 'new' | null>(null);
   const [filter, setFilter] = useState('all');
   const [removing, setRemoving] = useState<Category | null>(null);
+  const [editingCategories, setEditingCategories] = useState(false);
 
   if (loading && !data) return <LoadingState label="Loading menu…" />;
   if (!data) return <ErrorState error={error} onRetry={retry} />;
@@ -82,6 +83,7 @@ export default function MenuManagement() {
         active={filter}
         onSelect={setFilter}
         onAdded={(created) => { setCategories((prev) => [...prev, created]); setFilter(created.slug); }}
+        onEdit={() => setEditingCategories(true)}
       />
 
       {categories.filter((c) => filter === 'all' || c.slug === filter).map((category) => {
@@ -155,6 +157,16 @@ export default function MenuManagement() {
         </div>
       )}
 
+      {editingCategories && (
+        <CategoryEditor
+          categories={categories}
+          items={items}
+          onChanged={(next) => setCategories(() => next)}
+          onRemove={(c) => { setEditingCategories(false); setRemoving(c); }}
+          onClose={() => setEditingCategories(false)}
+        />
+      )}
+
       {removing && (
         <RemoveCategory
           category={removing}
@@ -187,12 +199,13 @@ export default function MenuManagement() {
   );
 }
 
-function CategoryManager({ categories, items, active, onSelect, onAdded }: {
+function CategoryManager({ categories, items, active, onSelect, onAdded, onEdit }: {
   categories: Category[];
   items: MenuItem[];
   active: string;
   onSelect: (slug: string) => void;
   onAdded: (category: Category) => void;
+  onEdit: () => void;
 }) {
   const toast = useToast();
   const [name, setName] = useState('');
@@ -215,7 +228,12 @@ function CategoryManager({ categories, items, active, onSelect, onAdded }: {
     <section className="card">
       <div className="card-header">
         <h2 className="card-title">Categories</h2>
-        <span className="subtle">Pick a category to show only its items</span>
+        <div className="row">
+          <span className="subtle">Pick a category to show only its items</span>
+          {categories.length > 0 && (
+            <button className="btn btn-secondary btn-sm" onClick={onEdit}><Icon name="edit" size={14} /> Edit</button>
+          )}
+        </div>
       </div>
       <div className="stack">
         {categories.length > 0 && (
@@ -237,6 +255,81 @@ function CategoryManager({ categories, items, active, onSelect, onAdded }: {
         </form>
       </div>
     </section>
+  );
+}
+
+/** Rename categories and change the order they appear in on the menu, POS and guest pages. */
+function CategoryEditor({ categories, items, onChanged, onRemove, onClose }: {
+  categories: Category[];
+  items: MenuItem[];
+  onChanged: (next: Category[]) => void;
+  onRemove: (category: Category) => void;
+  onClose: () => void;
+}) {
+  const toast = useToast();
+  const [names, setNames] = useState<Record<string, string>>(() => Object.fromEntries(categories.map((c) => [c.slug, c.name])));
+  const [busy, setBusy] = useState<string | null>(null);
+
+  async function rename(c: Category) {
+    const name = (names[c.slug] ?? '').trim();
+    if (!name || name === c.name) return;
+    setBusy(c.slug);
+    try {
+      const updated = await api.categories.rename(c.slug, name);
+      onChanged(categories.map((x) => (x.slug === c.slug ? updated : x)));
+      toast.success(`Renamed to “${updated.name}”`);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function move(index: number, delta: number) {
+    const next = [...categories];
+    const [moved] = next.splice(index, 1);
+    next.splice(index + delta, 0, moved);
+    setBusy(moved.slug);
+    try {
+      await api.categories.reorder(next.map((c) => c.slug));
+      onChanged(next.map((c, i) => ({ ...c, sortOrder: i + 1 })));
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <Modal title="Edit categories" onClose={onClose} footer={<button className="btn btn-secondary" onClick={onClose}>Done</button>}>
+      <ul className="category-edit">
+        {categories.map((c, i) => {
+          const count = items.filter((m) => m.category === c.slug).length;
+          const changed = (names[c.slug] ?? '').trim() !== c.name;
+          return (
+            <li key={c.slug}>
+              <div className="category-edit-move">
+                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => move(i, -1)} disabled={i === 0 || busy !== null} aria-label={`Move ${c.name} up`}><Icon name="arrowUp" size={14} /></button>
+                <button className="btn btn-ghost btn-icon btn-sm" onClick={() => move(i, 1)} disabled={i === categories.length - 1 || busy !== null} aria-label={`Move ${c.name} down`}><Icon name="arrowDown" size={14} /></button>
+              </div>
+              <form className="category-edit-name" onSubmit={(e) => { e.preventDefault(); rename(c); }}>
+                <input
+                  className="input"
+                  value={names[c.slug] ?? ''}
+                  onChange={(e) => setNames((n) => ({ ...n, [c.slug]: e.target.value }))}
+                  maxLength={40}
+                  placeholder="Category name"
+                  aria-label={`Name for ${c.name}`}
+                />
+                {changed && <button className="btn btn-primary btn-sm" disabled={busy !== null || !(names[c.slug] ?? '').trim()}>Save</button>}
+              </form>
+              <span className="subtle nowrap">{count} {count === 1 ? 'item' : 'items'}</span>
+              <button className="btn btn-ghost btn-icon btn-sm" onClick={() => onRemove(c)} aria-label={`Remove ${c.name}`} title="Remove category"><Icon name="trash" size={14} /></button>
+            </li>
+          );
+        })}
+      </ul>
+    </Modal>
   );
 }
 
