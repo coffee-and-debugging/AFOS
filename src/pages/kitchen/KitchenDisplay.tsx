@@ -152,9 +152,11 @@ export default function KitchenDisplay() {
         }
       />
 
-      {sound === 'blocked' && (
+      {/* Only when it matters: a new order is waiting but the browser is still holding the sound back.
+          Any tap on the screen (not just this bar) turns the bell on. */}
+      {sound === 'blocked' && incoming.length > 0 && (
         <button className="alert alert-warning kds-unlock" onClick={() => { unlockAudio(); playOrderBell(); }}>
-          <Icon name="bell" size={16} /> Tap here once to enable the order bell on this screen
+          <Icon name="bell" size={16} /> New order · tap anywhere to hear the bell
         </button>
       )}
 

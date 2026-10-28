@@ -34,9 +34,13 @@ export function unlockAudio() {
 }
 
 if (typeof window !== 'undefined') {
+  // Try at once: browsers that allow sound for this site (used before, or set to "Allow sound")
+  // start right away with no tap. Otherwise the first touch, click or key press anywhere unlocks it.
+  unlockAudio();
   const unlock = () => unlockAudio();
-  window.addEventListener('pointerdown', unlock, { passive: true });
-  window.addEventListener('keydown', unlock);
+  for (const type of ['pointerdown', 'touchstart', 'click', 'keydown']) {
+    window.addEventListener(type, unlock, { passive: true, capture: true });
+  }
 }
 
 export const soundStore = {

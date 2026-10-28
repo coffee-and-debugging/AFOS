@@ -8,12 +8,13 @@ import type { ChatMessage, Role } from '../types';
 // Developed by Unique Adhikari
 
 const ROLE_NAME: Record<Role, string> = { admin: 'Admin', cashier: 'Cashier', chef: 'Kitchen' };
-const ALL_ROLES: Role[] = ['chef', 'cashier', 'admin'];
+// Who each role can message, first tab = opened by default (the kitchen talks to the admin first)
+const PEERS: Record<Role, Role[]> = { chef: ['admin', 'cashier'], cashier: ['chef', 'admin'], admin: ['chef', 'cashier'] };
 
 /** Top-bar chat between the kitchen, the cashier and the admin, e.g. "we need 5 kg chicken". */
 export default function StaffChat() {
   const me = getAuthUser()?.role ?? 'admin';
-  const peers = ALL_ROLES.filter((r) => r !== me);
+  const peers = PEERS[me];
   const toast = useToast();
   const { data: unread, reload, setData: setUnread } = usePolling(api.chat.unread, 60_000);
   const [open, setOpen] = useState(false);
